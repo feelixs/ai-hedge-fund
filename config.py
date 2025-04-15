@@ -2,7 +2,7 @@ SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AMD', 'INTC
 
 # Medium-sized list of symbols (50)
 MED_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'AMGN', 'AMZN', 'ASML',
-               'AVGO', 'BKNG', 'CDNS', 'CMCSA', 'COST', 'CSCO', 'GOOG', 'GOOGL', 'INTC', 'F',
+               'AVGO', 'BKNG', 'CDNS', 'CMCSA', 'COST', 'CSCO', 'GOOGL', 'INTC', 'F',
                'INTU', 'ISRG', 'LRCX', 'MELI', 'META', 'MSFT', 'NFLX', 'NVDA', 'PYPL', 'QCOM', 'LCID',
                'DUK', 'MMM', 'SBUX', 'TXN', 'TSLA', 'SPY', 'QQQ', 'AIG', 'NIO', 'PLTR', 'QBTS', 'IQ',
                'SNAP', 'SMCI', 'NU', 'TSM', 'BABA', 'BMY', 'LPSN']
