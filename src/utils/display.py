@@ -22,9 +22,18 @@ def print_trading_output(result: dict) -> None:
         result (dict): Dictionary containing decisions and analyst signals for multiple tickers
     """
     decisions = result.get("decisions")
+    error_tickers = result.get("error_tickers", set())
+    
     if not decisions:
         print(f"{Fore.RED}No trading decisions available{Style.RESET_ALL}")
         return
+
+    # Print any error tickers first
+    if error_tickers:
+        print(f"\n{Fore.YELLOW}WARNING: Some tickers had errors during analysis{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}The following tickers encountered issues and were excluded from analysis:{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}{', '.join(sorted(error_tickers))}{Style.RESET_ALL}")
+        print("")
 
     # Print decisions for each ticker
     for ticker, decision in decisions.items():

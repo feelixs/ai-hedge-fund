@@ -38,122 +38,137 @@ def phil_fisher_agent(state: AgentState):
     start_date = data["start_date"]
     end_date = data["end_date"]
     tickers = data["tickers"]
+    
+    # Initialize error_tickers set if it doesn't exist
+    if "error_tickers" not in data:
+        data["error_tickers"] = set()
 
     analysis_data = {}
     fisher_analysis = {}
 
     for ticker in tickers:
-        progress.update_status("phil_fisher_agent", ticker, "Fetching financial metrics")
-        metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
+        try:
+            progress.update_status("phil_fisher_agent", ticker, "Fetching financial metrics")
+            metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
+            
+            # Check if metrics data is valid
+            if not metrics:
+                progress.update_status("phil_fisher_agent", ticker, "No financial metrics available - skipping")
+                data["error_tickers"].add(ticker)
+                continue
 
-        progress.update_status("phil_fisher_agent", ticker, "Gathering financial line items")
-        # Include relevant line items for Phil Fisher's approach:
-        #   - Growth & Quality: revenue, net_income, earnings_per_share, R&D expense
-        #   - Margins & Stability: operating_income, operating_margin, gross_margin
-        #   - Management Efficiency & Leverage: total_debt, shareholders_equity, free_cash_flow
-        #   - Valuation: net_income, free_cash_flow (for P/E, P/FCF), ebit, ebitda
-        financial_line_items = search_line_items(
-            ticker,
-            [
-                "revenue",
-                "net_income",
-                "earnings_per_share",
-                "free_cash_flow",
-                "research_and_development",
-                "operating_income",
-                "operating_margin",
-                "gross_margin",
-                "total_debt",
-                "shareholders_equity",
-                "cash_and_equivalents",
-                "ebit",
-                "ebitda",
-            ],
-            end_date,
-            period="annual",
-            limit=5,
-        )
+            progress.update_status("phil_fisher_agent", ticker, "Gathering financial line items")
+            # Include relevant line items for Phil Fisher's approach:
+            #   - Growth & Quality: revenue, net_income, earnings_per_share, R&D expense
+            #   - Margins & Stability: operating_income, operating_margin, gross_margin
+            #   - Management Efficiency & Leverage: total_debt, shareholders_equity, free_cash_flow
+            #   - Valuation: net_income, free_cash_flow (for P/E, P/FCF), ebit, ebitda
+            financial_line_items = search_line_items(
+                ticker,
+                [
+                    "revenue",
+                    "net_income",
+                    "earnings_per_share",
+                    "free_cash_flow",
+                    "research_and_development",
+                    "operating_income",
+                    "operating_margin",
+                    "gross_margin",
+                    "total_debt",
+                    "shareholders_equity",
+                    "cash_and_equivalents",
+                    "ebit",
+                    "ebitda",
+                ],
+                end_date,
+                period="annual",
+                limit=5,
+            )
 
-        progress.update_status("phil_fisher_agent", ticker, "Getting market cap")
-        market_cap = get_market_cap(ticker, end_date)
+            progress.update_status("phil_fisher_agent", ticker, "Getting market cap")
+            market_cap = get_market_cap(ticker, end_date)
 
-        progress.update_status("phil_fisher_agent", ticker, "Fetching insider trades")
-        insider_trades = get_insider_trades(ticker, end_date, start_date=None, limit=50)
+            progress.update_status("phil_fisher_agent", ticker, "Fetching insider trades")
+            insider_trades = get_insider_trades(ticker, end_date, start_date=None, limit=50)
 
-        progress.update_status("phil_fisher_agent", ticker, "Fetching company news")
-        company_news = get_company_news(ticker, end_date, start_date=None, limit=50)
+            progress.update_status("phil_fisher_agent", ticker, "Fetching company news")
+            company_news = get_company_news(ticker, end_date, start_date=None, limit=50)
 
-        progress.update_status("phil_fisher_agent", ticker, "Analyzing growth & quality")
-        growth_quality = analyze_fisher_growth_quality(financial_line_items)
+            progress.update_status("phil_fisher_agent", ticker, "Analyzing growth & quality")
+            growth_quality = analyze_fisher_growth_quality(financial_line_items)
 
-        progress.update_status("phil_fisher_agent", ticker, "Analyzing margins & stability")
-        margins_stability = analyze_margins_stability(financial_line_items)
+            progress.update_status("phil_fisher_agent", ticker, "Analyzing margins & stability")
+            margins_stability = analyze_margins_stability(financial_line_items)
 
-        progress.update_status("phil_fisher_agent", ticker, "Analyzing management efficiency & leverage")
-        mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items)
+            progress.update_status("phil_fisher_agent", ticker, "Analyzing management efficiency & leverage")
+            mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items)
 
-        progress.update_status("phil_fisher_agent", ticker, "Analyzing valuation (Fisher style)")
-        fisher_valuation = analyze_fisher_valuation(financial_line_items, market_cap)
+            progress.update_status("phil_fisher_agent", ticker, "Analyzing valuation (Fisher style)")
+            fisher_valuation = analyze_fisher_valuation(financial_line_items, market_cap)
 
-        progress.update_status("phil_fisher_agent", ticker, "Analyzing insider activity")
-        insider_activity = analyze_insider_activity(insider_trades)
+            progress.update_status("phil_fisher_agent", ticker, "Analyzing insider activity")
+            insider_activity = analyze_insider_activity(insider_trades)
 
-        progress.update_status("phil_fisher_agent", ticker, "Analyzing sentiment")
-        sentiment_analysis = analyze_sentiment(company_news)
+            progress.update_status("phil_fisher_agent", ticker, "Analyzing sentiment")
+            sentiment_analysis = analyze_sentiment(company_news)
 
-        # Combine partial scores with weights typical for Fisher:
-        #   30% Growth & Quality
-        #   25% Margins & Stability
-        #   20% Management Efficiency
-        #   15% Valuation
-        #   5% Insider Activity
-        #   5% Sentiment
-        total_score = (
-            growth_quality["score"] * 0.30
-            + margins_stability["score"] * 0.25
-            + mgmt_efficiency["score"] * 0.20
-            + fisher_valuation["score"] * 0.15
-            + insider_activity["score"] * 0.05
-            + sentiment_analysis["score"] * 0.05
-        )
+            # Combine partial scores with weights typical for Fisher:
+            #   30% Growth & Quality
+            #   25% Margins & Stability
+            #   20% Management Efficiency
+            #   15% Valuation
+            #   5% Insider Activity
+            #   5% Sentiment
+            total_score = (
+                growth_quality["score"] * 0.30
+                + margins_stability["score"] * 0.25
+                + mgmt_efficiency["score"] * 0.20
+                + fisher_valuation["score"] * 0.15
+                + insider_activity["score"] * 0.05
+                + sentiment_analysis["score"] * 0.05
+            )
 
-        max_possible_score = 10
+            max_possible_score = 10
 
-        # Simple bullish/neutral/bearish signal
-        if total_score >= 7.5:
-            signal = "bullish"
-        elif total_score <= 4.5:
-            signal = "bearish"
-        else:
-            signal = "neutral"
+            # Simple bullish/neutral/bearish signal
+            if total_score >= 7.5:
+                signal = "bullish"
+            elif total_score <= 4.5:
+                signal = "bearish"
+            else:
+                signal = "neutral"
 
-        analysis_data[ticker] = {
-            "signal": signal,
-            "score": total_score,
-            "max_score": max_possible_score,
-            "growth_quality": growth_quality,
-            "margins_stability": margins_stability,
-            "management_efficiency": mgmt_efficiency,
-            "valuation_analysis": fisher_valuation,
-            "insider_activity": insider_activity,
-            "sentiment_analysis": sentiment_analysis,
-        }
+            analysis_data[ticker] = {
+                "signal": signal,
+                "score": total_score,
+                "max_score": max_possible_score,
+                "growth_quality": growth_quality,
+                "margins_stability": margins_stability,
+                "management_efficiency": mgmt_efficiency,
+                "valuation_analysis": fisher_valuation,
+                "insider_activity": insider_activity,
+                "sentiment_analysis": sentiment_analysis,
+            }
 
-        progress.update_status("phil_fisher_agent", ticker, "Generating Phil Fisher-style analysis")
-        fisher_output = generate_fisher_output(
-            ticker=ticker,
-            analysis_data=analysis_data,
-            model_name=state["metadata"]["model_name"],
-            model_provider=state["metadata"]["model_provider"],
-        )
+            progress.update_status("phil_fisher_agent", ticker, "Generating Phil Fisher-style analysis")
+            fisher_output = generate_fisher_output(
+                ticker=ticker,
+                analysis_data=analysis_data,
+                model_name=state["metadata"]["model_name"],
+                model_provider=state["metadata"]["model_provider"],
+            )
 
-        fisher_analysis[ticker] = {
-            "signal": fisher_output.signal,
-            "confidence": fisher_output.confidence,
-            "reasoning": fisher_output.reasoning,
-        }
+            fisher_analysis[ticker] = {
+                "signal": fisher_output.signal,
+                "confidence": fisher_output.confidence,
+                "reasoning": fisher_output.reasoning,
+            }
 
-        progress.update_status("phil_fisher_agent", ticker, "Done")
+            progress.update_status("phil_fisher_agent", ticker, "Done")
+        except Exception as e:
+            progress.update_status("phil_fisher_agent", ticker, f"Error: {str(e)}")
+            print(f"Error analyzing {ticker} with Phil Fisher agent: {str(e)}")
+            data["error_tickers"].add(ticker)
 
     # Wrap results in a single message
     message = HumanMessage(content=json.dumps(fisher_analysis), name="phil_fisher_agent")

@@ -64,6 +64,11 @@ def run_hedge_fund(
     # Start progress tracking
     progress.start()
 
+    # Track tickers that had errors
+    error_tickers = set()
+    valid_tickers = list(tickers)
+    analyst_signals = {}
+
     try:
         # Create a new workflow if analysts are customized
         if selected_analysts:
@@ -80,11 +85,12 @@ def run_hedge_fund(
                     )
                 ],
                 "data": {
-                    "tickers": tickers,
+                    "tickers": valid_tickers,
                     "portfolio": portfolio,
                     "start_date": start_date,
                     "end_date": end_date,
-                    "analyst_signals": {},
+                    "analyst_signals": analyst_signals,
+                    "error_tickers": error_tickers,
                 },
                 "metadata": {
                     "show_reasoning": show_reasoning,
@@ -97,6 +103,7 @@ def run_hedge_fund(
         return {
             "decisions": parse_hedge_fund_response(final_state["messages"][-1].content),
             "analyst_signals": final_state["data"]["analyst_signals"],
+            "error_tickers": final_state["data"].get("error_tickers", set()),
         }
     finally:
         # Stop progress tracking
@@ -312,14 +319,18 @@ if __name__ == "__main__":
     }
 
     # Run the hedge fund
-    result = run_hedge_fund(
-        tickers=tickers,
-        start_date=start_date,
-        end_date=end_date,
-        portfolio=portfolio,
-        show_reasoning=args.show_reasoning,
-        selected_analysts=selected_analysts,
-        model_name=model_choice,
-        model_provider=model_provider,
-    )
-    print_trading_output(result)
+    try:
+        result = run_hedge_fund(
+            tickers=tickers,
+            start_date=start_date,
+            end_date=end_date,
+            portfolio=portfolio,
+            show_reasoning=args.show_reasoning,
+            selected_analysts=selected_analysts,
+            model_name=model_choice,
+            model_provider=model_provider,
+        )
+        print_trading_output(result)
+    except Exception as e:
+        print(f"\n{Fore.RED}Error running hedge fund: {str(e)}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Any valid data collected will still be processed.{Style.RESET_ALL}")
