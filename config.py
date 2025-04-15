@@ -57,3 +57,6 @@ LARGE_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'A
                  'GRCL', 'GRCY', 'GRCYU', 'GRCYW', 'GRFS', 'GRIN', 'GRPN', 'GRSV', 'GRSVU', 'GRSVW',
                  'GRTX', 'GRVY', 'GRWG', 'GSBC', 'GSHD', 'GSIT', 'GSKY', 'GSM', 'GSMG', 'GSMGW',
                  'GTBP', 'GTEC', 'GTH', 'GTIM', 'GTLS', 'GTLS', 'GTLS']
+
+
+tickers = LARGE_SYMBOLS
