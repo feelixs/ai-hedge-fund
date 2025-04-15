@@ -44,4 +44,4 @@ LARGE_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'A
                  'GTBP', 'GTEC', 'GTIM', 'GTLS', 'GTLS']
 
 
-tickers = LARGE_SYMBOLS
+tickers = MED_SYMBOLS
