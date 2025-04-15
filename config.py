@@ -4,13 +4,13 @@ SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AMD', 'INTC
 MED_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'AMGN', 'AMZN', 'ASML',
                'AVGO', 'BKNG', 'CDNS', 'CMCSA', 'COST', 'CSCO', 'GOOGL', 'INTC', 'F',
                'INTU', 'ISRG', 'LRCX', 'MELI', 'META', 'MSFT', 'NFLX', 'NVDA', 'PYPL', 'QCOM', 'LCID',
-               'DUK', 'MMM', 'SBUX', 'TXN', 'TSLA', 'SPY', 'QQQ', 'AIG', 'NIO', 'PLTR', 'QBTS', 'IQ',
-               'SNAP', 'SMCI', 'NU', 'TSM', 'BABA', 'BMY', 'LPSN']
+               'DUK', 'MMM', 'SBUX', 'TXN', 'TSLA', 'AIG', 'NIO', 'PLTR', 'QBTS', 'IQ', 'SNAP', 'SMCI',
+               'NU', 'TSM', 'BABA', 'BMY', 'LPSN']
 
 LARGE_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'AMGN', 'AMZN', 'ASML', 'EXEL', 'LCTX',
                  'AVGO', 'BKNG', 'CDNS', 'CMCSA', 'COST', 'CSCO', 'GOOGL', 'INTC', 'F', 'INTU', 'INO', 'RAPT', 'GTLS',
                  'ISRG', 'LRCX', 'MELI', 'META', 'MSFT', 'NFLX', 'NVDA', 'PYPL', 'QCOM', 'LCID', 'DUK', 'TSHA', 'BIGC',
-                 'MMM', 'SBUX', 'TXN', 'TSLA', 'SPY', 'QQQ', 'AIG', 'NIO', 'PLTR', 'QBTS', 'IQ', 'SNAP', 'GH', 'BAND',
+                 'MMM', 'SBUX', 'TXN', 'TSLA', 'AIG', 'NIO', 'PLTR', 'QBTS', 'IQ', 'SNAP', 'GH', 'BAND', 'GTLS', 'GTLS',
                  'SMCI', 'NU', 'TSM', 'BABA', 'BMY', 'LPSN', 'TMUS', 'CRWD', 'ZM', 'ROKU', 'MTCH', 'OKTA', 'GM', 'CRBU',
                  'ZS', 'DDOG', 'NET', 'MDB', 'DOCU', 'PDD', 'JD', 'BILI', 'BIDU', 'NTES', 'WDAY', 'TWLO', 'GME', 'TSVT',
                  'TEAM', 'CRM', 'NOW', 'TTD', 'PINS', 'ETSY', 'SPOT', 'DASH', 'RIVN', 'RBLX', 'U', 'COIN', 'MP', 'NTRA',
@@ -41,7 +41,7 @@ LARGE_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'A
                  'GILD', 'GILT', 'GLBS', 'GLBZ', 'GLDD', 'GLNG', 'GLPG', 'GLPI', 'GLRE', 'GLYC', 'GNFT', 'GNLN', 'GNMA',
                  'GNOM', 'GNTX', 'GNTY', 'GOCO', 'GOGL', 'GOGO', 'GOOD', 'GOODO', 'GOOG', 'GOOGL', 'GOSS', 'GOVX', 'GP',
                  'GPMT', 'GPRE', 'GPRO', 'GRBK', 'GRFS', 'GRPN', 'GRTX', 'GRVY', 'GRWG', 'GSBC', 'GSHD', 'GSIT', 'GSM',
-                 'GTBP', 'GTEC', 'GTIM', 'GTLS', 'GTLS']
+                 'GTBP', 'GTEC', 'GTIM']
 
 
 tickers = MED_SYMBOLS
