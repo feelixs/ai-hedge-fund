@@ -8,7 +8,7 @@ MED_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'AMG
                'SNAP', 'SMCI', 'NU', 'TSM', 'BABA', 'BMY', 'LPSN']
 
 LARGE_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'AMGN', 'AMZN', 'ASML', 'EXEL', 'LCTX',
-                 'AVGO', 'BKNG', 'CDNS', 'CMCSA', 'COST', 'CSCO', 'GOOG', 'GOOGL', 'INTC', 'F', 'INTU', 'INO', 'RAPT',
+                 'AVGO', 'BKNG', 'CDNS', 'CMCSA', 'COST', 'CSCO', 'GOOGL', 'INTC', 'F', 'INTU', 'INO', 'RAPT', 'GTLS',
                  'ISRG', 'LRCX', 'MELI', 'META', 'MSFT', 'NFLX', 'NVDA', 'PYPL', 'QCOM', 'LCID', 'DUK', 'TSHA', 'BIGC',
                  'MMM', 'SBUX', 'TXN', 'TSLA', 'SPY', 'QQQ', 'AIG', 'NIO', 'PLTR', 'QBTS', 'IQ', 'SNAP', 'GH', 'BAND',
                  'SMCI', 'NU', 'TSM', 'BABA', 'BMY', 'LPSN', 'TMUS', 'CRWD', 'ZM', 'ROKU', 'MTCH', 'OKTA', 'GM', 'CRBU',
@@ -41,7 +41,7 @@ LARGE_SYMBOLS = ['AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AMAT', 'AMD', 'A
                  'GILD', 'GILT', 'GLBS', 'GLBZ', 'GLDD', 'GLNG', 'GLPG', 'GLPI', 'GLRE', 'GLYC', 'GNFT', 'GNLN', 'GNMA',
                  'GNOM', 'GNTX', 'GNTY', 'GOCO', 'GOGL', 'GOGO', 'GOOD', 'GOODO', 'GOOG', 'GOOGL', 'GOSS', 'GOVX', 'GP',
                  'GPMT', 'GPRE', 'GPRO', 'GRBK', 'GRFS', 'GRPN', 'GRTX', 'GRVY', 'GRWG', 'GSBC', 'GSHD', 'GSIT', 'GSM',
-                 'GTBP', 'GTEC', 'GTIM', 'GTLS', 'GTLS', 'GTLS']
+                 'GTBP', 'GTEC', 'GTIM', 'GTLS', 'GTLS']
 
 
 tickers = LARGE_SYMBOLS
