@@ -100,8 +100,18 @@ def run_hedge_fund(
             },
         )
 
+        # Remove error tickers from valid tickers before processing the final response
+        valid_tickers_final = [ticker for ticker in valid_tickers if ticker not in final_state["data"].get("error_tickers", set())]
+        
+        # Parse the response
+        decisions = parse_hedge_fund_response(final_state["messages"][-1].content)
+        
+        # Keep only decisions for valid tickers
+        if decisions and isinstance(decisions, dict):
+            decisions = {ticker: decision for ticker, decision in decisions.items() if ticker in valid_tickers_final}
+        
         return {
-            "decisions": parse_hedge_fund_response(final_state["messages"][-1].content),
+            "decisions": decisions,
             "analyst_signals": final_state["data"]["analyst_signals"],
             "error_tickers": final_state["data"].get("error_tickers", set()),
         }

@@ -27,7 +27,10 @@ def portfolio_management_agent(state: AgentState):
     # Get the portfolio and analyst signals
     portfolio = state["data"]["portfolio"]
     analyst_signals = state["data"]["analyst_signals"]
-    tickers = state["data"]["tickers"]
+    error_tickers = state["data"].get("error_tickers", set())
+    
+    # Filter out tickers that had errors
+    tickers = [ticker for ticker in state["data"]["tickers"] if ticker not in error_tickers]
 
     progress.update_status("portfolio_management_agent", None, "Analyzing signals")
 

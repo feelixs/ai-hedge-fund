@@ -10,7 +10,10 @@ def risk_management_agent(state: AgentState):
     """Controls position sizing based on real-world risk factors for multiple tickers."""
     portfolio = state["data"]["portfolio"]
     data = state["data"]
-    tickers = data["tickers"]
+    error_tickers = data.get("error_tickers", set())
+    
+    # Filter out tickers that had errors
+    tickers = [ticker for ticker in data["tickers"] if ticker not in error_tickers]
 
     # Initialize risk analysis for each ticker
     risk_analysis = {}
