@@ -1,6 +1,5 @@
-from graph.state import AgentState, show_agent_reasoning
-from tools.api import (
-    get_financial_metrics,
+from src.graph.state import AgentState, show_agent_reasoning
+from src.tools.api import (
     get_market_cap,
     search_line_items,
     get_insider_trades,
@@ -11,10 +10,10 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 import json
 from typing_extensions import Literal
-from utils.progress import progress
-from utils.llm import call_llm
+from src.utils.progress import progress
+from src.utils.llm import call_llm
 import statistics
-
+from src.utils.api_key import get_api_key_from_state
 
 class PhilFisherSignal(BaseModel):
     signal: Literal["bullish", "bearish", "neutral"]
@@ -22,7 +21,7 @@ class PhilFisherSignal(BaseModel):
     reasoning: str
 
 
-def phil_fisher_agent(state: AgentState):
+def phil_fisher_agent(state: AgentState, agent_id: str = "phil_fisher_agent"):
     """
     Analyzes stocks using Phil Fisher's investing principles:
       - Seek companies with long-term above-average growth potential
@@ -35,148 +34,133 @@ def phil_fisher_agent(state: AgentState):
     Returns a bullish/bearish/neutral signal with confidence and reasoning.
     """
     data = state["data"]
-    start_date = data["start_date"]
     end_date = data["end_date"]
     tickers = data["tickers"]
-    
-    # Initialize error_tickers set if it doesn't exist
-    if "error_tickers" not in data:
-        data["error_tickers"] = set()
-
+    api_key = get_api_key_from_state(state, "FINANCIAL_DATASETS_API_KEY")
     analysis_data = {}
     fisher_analysis = {}
 
     for ticker in tickers:
-        try:
-            progress.update_status("phil_fisher_agent", ticker, "Fetching financial metrics")
-            metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
-            
-            # Check if metrics data is valid
-            if not metrics:
-                progress.update_status("phil_fisher_agent", ticker, "No financial metrics available - skipping")
-                data["error_tickers"].add(ticker)
-                continue
+        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        # Include relevant line items for Phil Fisher's approach:
+        #   - Growth & Quality: revenue, net_income, earnings_per_share, R&D expense
+        #   - Margins & Stability: operating_income, operating_margin, gross_margin
+        #   - Management Efficiency & Leverage: total_debt, shareholders_equity, free_cash_flow
+        #   - Valuation: net_income, free_cash_flow (for P/E, P/FCF), ebit, ebitda
+        financial_line_items = search_line_items(
+            ticker,
+            [
+                "revenue",
+                "net_income",
+                "earnings_per_share",
+                "free_cash_flow",
+                "research_and_development",
+                "operating_income",
+                "operating_margin",
+                "gross_margin",
+                "total_debt",
+                "shareholders_equity",
+                "cash_and_equivalents",
+                "ebit",
+                "ebitda",
+            ],
+            end_date,
+            period="annual",
+            limit=5,
+            api_key=api_key,
+        )
 
-            progress.update_status("phil_fisher_agent", ticker, "Gathering financial line items")
-            # Include relevant line items for Phil Fisher's approach:
-            #   - Growth & Quality: revenue, net_income, earnings_per_share, R&D expense
-            #   - Margins & Stability: operating_income, operating_margin, gross_margin
-            #   - Management Efficiency & Leverage: total_debt, shareholders_equity, free_cash_flow
-            #   - Valuation: net_income, free_cash_flow (for P/E, P/FCF), ebit, ebitda
-            financial_line_items = search_line_items(
-                ticker,
-                [
-                    "revenue",
-                    "net_income",
-                    "earnings_per_share",
-                    "free_cash_flow",
-                    "research_and_development",
-                    "operating_income",
-                    "operating_margin",
-                    "gross_margin",
-                    "total_debt",
-                    "shareholders_equity",
-                    "cash_and_equivalents",
-                    "ebit",
-                    "ebitda",
-                ],
-                end_date,
-                period="annual",
-                limit=5,
-            )
+        progress.update_status(agent_id, ticker, "Getting market cap")
+        market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
-            progress.update_status("phil_fisher_agent", ticker, "Getting market cap")
-            market_cap = get_market_cap(ticker, end_date)
+        progress.update_status(agent_id, ticker, "Fetching insider trades")
+        insider_trades = get_insider_trades(ticker, end_date, limit=50, api_key=api_key)
 
-            progress.update_status("phil_fisher_agent", ticker, "Fetching insider trades")
-            insider_trades = get_insider_trades(ticker, end_date, start_date=None, limit=50)
+        progress.update_status(agent_id, ticker, "Fetching company news")
+        company_news = get_company_news(ticker, end_date, limit=50, api_key=api_key)
 
-            progress.update_status("phil_fisher_agent", ticker, "Fetching company news")
-            company_news = get_company_news(ticker, end_date, start_date=None, limit=50)
+        progress.update_status(agent_id, ticker, "Analyzing growth & quality")
+        growth_quality = analyze_fisher_growth_quality(financial_line_items)
 
-            progress.update_status("phil_fisher_agent", ticker, "Analyzing growth & quality")
-            growth_quality = analyze_fisher_growth_quality(financial_line_items)
+        progress.update_status(agent_id, ticker, "Analyzing margins & stability")
+        margins_stability = analyze_margins_stability(financial_line_items)
 
-            progress.update_status("phil_fisher_agent", ticker, "Analyzing margins & stability")
-            margins_stability = analyze_margins_stability(financial_line_items)
+        progress.update_status(agent_id, ticker, "Analyzing management efficiency & leverage")
+        mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items)
 
-            progress.update_status("phil_fisher_agent", ticker, "Analyzing management efficiency & leverage")
-            mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items)
+        progress.update_status(agent_id, ticker, "Analyzing valuation (Fisher style)")
+        fisher_valuation = analyze_fisher_valuation(financial_line_items, market_cap)
 
-            progress.update_status("phil_fisher_agent", ticker, "Analyzing valuation (Fisher style)")
-            fisher_valuation = analyze_fisher_valuation(financial_line_items, market_cap)
+        progress.update_status(agent_id, ticker, "Analyzing insider activity")
+        insider_activity = analyze_insider_activity(insider_trades)
 
-            progress.update_status("phil_fisher_agent", ticker, "Analyzing insider activity")
-            insider_activity = analyze_insider_activity(insider_trades)
+        progress.update_status(agent_id, ticker, "Analyzing sentiment")
+        sentiment_analysis = analyze_sentiment(company_news)
 
-            progress.update_status("phil_fisher_agent", ticker, "Analyzing sentiment")
-            sentiment_analysis = analyze_sentiment(company_news)
+        # Combine partial scores with weights typical for Fisher:
+        #   30% Growth & Quality
+        #   25% Margins & Stability
+        #   20% Management Efficiency
+        #   15% Valuation
+        #   5% Insider Activity
+        #   5% Sentiment
+        total_score = (
+            growth_quality["score"] * 0.30
+            + margins_stability["score"] * 0.25
+            + mgmt_efficiency["score"] * 0.20
+            + fisher_valuation["score"] * 0.15
+            + insider_activity["score"] * 0.05
+            + sentiment_analysis["score"] * 0.05
+        )
 
-            # Combine partial scores with weights typical for Fisher:
-            #   30% Growth & Quality
-            #   25% Margins & Stability
-            #   20% Management Efficiency
-            #   15% Valuation
-            #   5% Insider Activity
-            #   5% Sentiment
-            total_score = (
-                growth_quality["score"] * 0.30
-                + margins_stability["score"] * 0.25
-                + mgmt_efficiency["score"] * 0.20
-                + fisher_valuation["score"] * 0.15
-                + insider_activity["score"] * 0.05
-                + sentiment_analysis["score"] * 0.05
-            )
+        max_possible_score = 10
 
-            max_possible_score = 10
+        # Simple bullish/neutral/bearish signal
+        if total_score >= 7.5:
+            signal = "bullish"
+        elif total_score <= 4.5:
+            signal = "bearish"
+        else:
+            signal = "neutral"
 
-            # Simple bullish/neutral/bearish signal
-            if total_score >= 7.5:
-                signal = "bullish"
-            elif total_score <= 4.5:
-                signal = "bearish"
-            else:
-                signal = "neutral"
+        analysis_data[ticker] = {
+            "signal": signal,
+            "score": total_score,
+            "max_score": max_possible_score,
+            "growth_quality": growth_quality,
+            "margins_stability": margins_stability,
+            "management_efficiency": mgmt_efficiency,
+            "valuation_analysis": fisher_valuation,
+            "insider_activity": insider_activity,
+            "sentiment_analysis": sentiment_analysis,
+        }
 
-            analysis_data[ticker] = {
-                "signal": signal,
-                "score": total_score,
-                "max_score": max_possible_score,
-                "growth_quality": growth_quality,
-                "margins_stability": margins_stability,
-                "management_efficiency": mgmt_efficiency,
-                "valuation_analysis": fisher_valuation,
-                "insider_activity": insider_activity,
-                "sentiment_analysis": sentiment_analysis,
-            }
+        progress.update_status(agent_id, ticker, "Generating Phil Fisher-style analysis")
+        fisher_output = generate_fisher_output(
+            ticker=ticker,
+            analysis_data=analysis_data,
+            state=state,
+            agent_id=agent_id,
+        )
 
-            progress.update_status("phil_fisher_agent", ticker, "Generating Phil Fisher-style analysis")
-            fisher_output = generate_fisher_output(
-                ticker=ticker,
-                analysis_data=analysis_data,
-                model_name=state["metadata"]["model_name"],
-                model_provider=state["metadata"]["model_provider"],
-            )
+        fisher_analysis[ticker] = {
+            "signal": fisher_output.signal,
+            "confidence": fisher_output.confidence,
+            "reasoning": fisher_output.reasoning,
+        }
 
-            fisher_analysis[ticker] = {
-                "signal": fisher_output.signal,
-                "confidence": fisher_output.confidence,
-                "reasoning": fisher_output.reasoning,
-            }
-
-            progress.update_status("phil_fisher_agent", ticker, "Done")
-        except Exception as e:
-            progress.update_status("phil_fisher_agent", ticker, f"Error: {str(e)}")
-            print(f"Error analyzing {ticker} with Phil Fisher agent: {str(e)}")
-            data["error_tickers"].add(ticker)
+        progress.update_status(agent_id, ticker, "Done", analysis=fisher_output.reasoning)
 
     # Wrap results in a single message
-    message = HumanMessage(content=json.dumps(fisher_analysis), name="phil_fisher_agent")
+    message = HumanMessage(content=json.dumps(fisher_analysis), name=agent_id)
 
     if state["metadata"].get("show_reasoning"):
         show_agent_reasoning(fisher_analysis, "Phil Fisher Agent")
 
-    state["data"]["analyst_signals"]["phil_fisher_agent"] = fisher_analysis
+    state["data"]["analyst_signals"][agent_id] = fisher_analysis
+
+    progress.update_status(agent_id, None, "Done")
+    
     return {"messages": [message], "data": state["data"]}
 
 
@@ -196,48 +180,52 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
     details = []
     raw_score = 0  # up to 9 raw points => scale to 0–10
 
-    # 1. Revenue Growth (YoY)
+    # 1. Revenue Growth (annualized CAGR)
     revenues = [fi.revenue for fi in financial_line_items if fi.revenue is not None]
     if len(revenues) >= 2:
-        # We'll look at the earliest vs. latest to gauge multi-year growth if possible
+        # Calculate annualized growth rate (CAGR) for proper comparison
         latest_rev = revenues[0]
         oldest_rev = revenues[-1]
-        if oldest_rev > 0:
-            rev_growth = (latest_rev - oldest_rev) / abs(oldest_rev)
-            if rev_growth > 0.80:
+        num_years = len(revenues) - 1
+        if oldest_rev > 0 and latest_rev > 0:
+            # CAGR formula: (ending_value/beginning_value)^(1/years) - 1
+            rev_growth = (latest_rev / oldest_rev) ** (1 / num_years) - 1
+            if rev_growth > 0.20:  # 20% annualized
                 raw_score += 3
-                details.append(f"Very strong multi-period revenue growth: {rev_growth:.1%}")
-            elif rev_growth > 0.40:
+                details.append(f"Very strong annualized revenue growth: {rev_growth:.1%}")
+            elif rev_growth > 0.10:  # 10% annualized
                 raw_score += 2
-                details.append(f"Moderate multi-period revenue growth: {rev_growth:.1%}")
-            elif rev_growth > 0.10:
+                details.append(f"Moderate annualized revenue growth: {rev_growth:.1%}")
+            elif rev_growth > 0.03:  # 3% annualized
                 raw_score += 1
-                details.append(f"Slight multi-period revenue growth: {rev_growth:.1%}")
+                details.append(f"Slight annualized revenue growth: {rev_growth:.1%}")
             else:
-                details.append(f"Minimal or negative multi-period revenue growth: {rev_growth:.1%}")
+                details.append(f"Minimal or negative annualized revenue growth: {rev_growth:.1%}")
         else:
             details.append("Oldest revenue is zero/negative; cannot compute growth.")
     else:
         details.append("Not enough revenue data points for growth calculation.")
 
-    # 2. EPS Growth (YoY)
+    # 2. EPS Growth (annualized CAGR)
     eps_values = [fi.earnings_per_share for fi in financial_line_items if fi.earnings_per_share is not None]
     if len(eps_values) >= 2:
         latest_eps = eps_values[0]
         oldest_eps = eps_values[-1]
-        if abs(oldest_eps) > 1e-9:
-            eps_growth = (latest_eps - oldest_eps) / abs(oldest_eps)
-            if eps_growth > 0.80:
+        num_years = len(eps_values) - 1
+        if oldest_eps > 0 and latest_eps > 0:
+            # CAGR formula for EPS
+            eps_growth = (latest_eps / oldest_eps) ** (1 / num_years) - 1
+            if eps_growth > 0.20:  # 20% annualized
                 raw_score += 3
-                details.append(f"Very strong multi-period EPS growth: {eps_growth:.1%}")
-            elif eps_growth > 0.40:
+                details.append(f"Very strong annualized EPS growth: {eps_growth:.1%}")
+            elif eps_growth > 0.10:  # 10% annualized
                 raw_score += 2
-                details.append(f"Moderate multi-period EPS growth: {eps_growth:.1%}")
-            elif eps_growth > 0.10:
+                details.append(f"Moderate annualized EPS growth: {eps_growth:.1%}")
+            elif eps_growth > 0.03:  # 3% annualized
                 raw_score += 1
-                details.append(f"Slight multi-period EPS growth: {eps_growth:.1%}")
+                details.append(f"Slight annualized EPS growth: {eps_growth:.1%}")
             else:
-                details.append(f"Minimal or negative multi-period EPS growth: {eps_growth:.1%}")
+                details.append(f"Minimal or negative annualized EPS growth: {eps_growth:.1%}")
         else:
             details.append("Oldest EPS near zero; skipping EPS growth calculation.")
     else:
@@ -543,8 +531,8 @@ def analyze_sentiment(news_items: list) -> dict:
 def generate_fisher_output(
     ticker: str,
     analysis_data: dict[str, any],
-    model_name: str,
-    model_provider: str,
+    state: AgentState,
+    agent_id: str,
 ) -> PhilFisherSignal:
     """
     Generates a JSON signal in the style of Phil Fisher.
@@ -608,9 +596,8 @@ def generate_fisher_output(
 
     return call_llm(
         prompt=prompt,
-        model_name=model_name,
-        model_provider=model_provider,
         pydantic_model=PhilFisherSignal,
-        agent_name="phil_fisher_agent",
+        state=state,
+        agent_name=agent_id,
         default_factory=create_default_signal,
     )
