@@ -1,1 +1,1 @@
-poetry run python src/main.py --tickers $1
+poetry run python -m src.main --tickers $1

@@ -54,15 +54,36 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
 
         news_signals = []
         sentiment_confidences = {}  # Store confidence scores for each article
-        
-        if company_news:
-            # Check the 10 most recent articles
-            recent_articles = company_news[:10]
-            articles_without_sentiment = [news for news in recent_articles if news.sentiment is None]
-            
-            # Analyze only the 5 most recent articles without sentiment to reduce LLM calls
-            sentiments_classified_by_llm = 0
-            if articles_without_sentiment:
+
+        if not company_news:
+            # No news available for this ticker - set neutral signal with 0 confidence
+            sentiment_analysis[ticker] = {
+                "signal": "neutral",
+                "confidence": 0,
+                "reasoning": {
+                    "news_sentiment": {
+                        "signal": "neutral",
+                        "confidence": 0,
+                        "metrics": {
+                            "total_articles": 0,
+                            "bullish_articles": 0,
+                            "bearish_articles": 0,
+                            "neutral_articles": 0,
+                            "articles_classified_by_llm": 0,
+                        },
+                    }
+                },
+            }
+            progress.update_status(agent_id, ticker, "Done (no news found)")
+            continue
+
+        # Check the 10 most recent articles
+        recent_articles = company_news[:10]
+        articles_without_sentiment = [news for news in recent_articles if news.sentiment is None]
+
+        # Analyze only the 5 most recent articles without sentiment to reduce LLM calls
+        sentiments_classified_by_llm = 0
+        if articles_without_sentiment:
               # We only take the first 5 articles, but this is configurable
               num_articles_to_analyze = 5
               articles_to_analyze = articles_without_sentiment[:num_articles_to_analyze]
@@ -91,9 +112,9 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
                     sentiment_confidences[id(news)] = 0
                 sentiments_classified_by_llm += 1
 
-            # Aggregate sentiment across all articles
-            sentiment = pd.Series([n.sentiment for n in company_news]).dropna()
-            news_signals = np.where(sentiment == "negative","bearish", np.where(sentiment == "positive", "bullish", "neutral")).tolist()
+        # Aggregate sentiment across all articles
+        sentiment = pd.Series([n.sentiment for n in company_news]).dropna()
+        news_signals = np.where(sentiment == "negative","bearish", np.where(sentiment == "positive", "bullish", "neutral")).tolist()
 
         progress.update_status(agent_id, ticker, "Aggregating signals")
 
