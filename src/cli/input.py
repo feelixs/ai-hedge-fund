@@ -67,7 +67,7 @@ def add_date_args(parser: argparse.ArgumentParser, *, default_months_back: int |
 def parse_tickers(tickers_arg: str | None) -> list[str]:
     if not tickers_arg:
         return []
-    return [ticker.strip() for ticker in tickers_arg.split(",") if ticker.strip()]
+    return [ticker.strip().upper() for ticker in tickers_arg.split(",") if ticker.strip()]
 
 
 def select_analysts(flags: dict | None = None) -> list[str]:
