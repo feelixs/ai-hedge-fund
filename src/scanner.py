@@ -888,9 +888,10 @@ def save_scan_results(results: list[dict], scan_date: str) -> str:
 
     Returns the path to the created directory.
     """
-    # Create timestamped directory
+    # Create timestamped directory relative to project root (parent of src/)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = os.path.join("scans", timestamp)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    output_dir = os.path.join(project_root, "scans", timestamp)
     os.makedirs(output_dir, exist_ok=True)
 
     # Save individual ticker files
