@@ -616,12 +616,15 @@ def format_signal(signal: str, detailed: bool = False, confidence: int = 0) -> s
     return signal_upper
 
 
-def print_table(results: list[dict], detailed: bool = False):
+def print_table(results: list[dict], detailed: bool = False, strategy: str = "intraday"):
     """Print results as a formatted table."""
     # Header
     print("=" * 100)
     print("                              STOCK SCANNER RESULTS")
-    print(f"                              {datetime.now().strftime('%Y-%m-%d')} (15-min candles, 30-day lookback)")
+    if strategy == "value":
+        print(f"                              {datetime.now().strftime('%Y-%m-%d')} (GARP Value Strategy)")
+    else:
+        print(f"                              {datetime.now().strftime('%Y-%m-%d')} (15-min candles, 30-day lookback)")
     print("=" * 100)
     print()
 
@@ -658,7 +661,7 @@ def print_table(results: list[dict], detailed: bool = False):
         print("        Confidence shown in parentheses")
 
 
-def run_scanner(tickers: list[str], api_key: str, detailed: bool = False, output_json: bool = False) -> list[dict]:
+def run_scanner(tickers: list[str], api_key: str, detailed: bool = False, output_json: bool = False, strategy: str = "intraday") -> list[dict]:
     """Run the scanner on all tickers."""
     end_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -709,13 +712,20 @@ def run_scanner(tickers: list[str], api_key: str, detailed: bool = False, output
     if output_json:
         print(json.dumps(results, indent=2))
     else:
-        print_table(results, detailed)
+        print_table(results, detailed, strategy)
 
     return results
 
 
-def get_instructions_content() -> str:
-    """Generate the INSTRUCTIONS.md content for agents."""
+def get_instructions_content(strategy: str = "intraday") -> str:
+    """Generate the instructions content for agents based on strategy type."""
+    if strategy == "value":
+        return get_value_instructions_content()
+    return get_intraday_instructions_content()
+
+
+def get_intraday_instructions_content() -> str:
+    """Generate the intraday/momentum trading instructions."""
     return """# Stock Scanner Results - Day Trading & Momentum Guide
 
 ## Timeframe: 15-Minute Candles
@@ -878,13 +888,203 @@ Based on volatility regime and risk levels:
 ---
 
 ## File Structure
-- `INSTRUCTIONS.md` - This file (trading guide)
+- `instructions_intraday.md` - This file (trading guide)
 - `{TICKER}.json` - Full analysis data per ticker
 """
 
 
-def save_scan_results(results: list[dict], scan_date: str) -> str:
+def get_value_instructions_content() -> str:
+    """Generate the GARP (Growth at Reasonable Price) value investing instructions."""
+    return """# Stock Scanner Results - GARP Value Investing Guide
+
+## Strategy: Growth at Reasonable Price (GARP)
+
+**This scanner identifies stocks with strong growth trading at reasonable valuations.**
+
+- Optimized for **medium to long-term** positions (weeks to months)
+- Balances growth metrics with valuation discipline
+- Technical signals used for entry timing only
+- Focus on sustainable competitive advantages
+
+---
+
+## Quick Reference: Key GARP Metrics
+
+### Primary Valuation Metrics (Decision Drivers)
+
+| Metric | Location | Strong Buy | Fair Value | Overvalued | Use |
+|--------|----------|------------|------------|------------|-----|
+| `peg_ratio` | growth.metrics | < 1.0 | 1.0 - 2.0 | > 2.0 | **Primary GARP signal** |
+| `valuation_gap_pct` | valuation.metrics | > +25% | -15% to +25% | < -25% | DCF-based undervaluation |
+| `price_to_earnings` | fundamentals.metrics | < 20 | 20 - 35 | > 35 | Absolute P/E check |
+
+### Growth Quality Metrics
+
+| Metric | Location | Strong | Moderate | Weak | Use |
+|--------|----------|--------|----------|------|-----|
+| `earnings_growth` | growth.metrics | > 15% | 5-15% | < 5% | **Core growth driver** |
+| `revenue_growth` | growth.metrics | > 10% | 5-10% | < 5% | Growth sustainability |
+| `fcf_growth` | growth.metrics | > 10% | 0-10% | < 0% | Cash flow quality |
+
+### Fundamental Quality Metrics
+
+| Metric | Location | Excellent | Acceptable | Concerning | Use |
+|--------|----------|-----------|------------|------------|-----|
+| `return_on_equity` | fundamentals.metrics | > 20% | 12-20% | < 12% | Capital efficiency |
+| `net_margin` | fundamentals.metrics | > 15% | 8-15% | < 8% | Profitability |
+| `debt_to_equity` | fundamentals.metrics | < 0.5 | 0.5 - 1.0 | > 1.0 | Balance sheet health |
+| `current_ratio` | fundamentals.metrics | > 1.5 | 1.0 - 1.5 | < 1.0 | Liquidity |
+
+---
+
+## GARP Buy Identification
+
+### STRONG BUY Setup (High Conviction GARP)
+All conditions must be true:
+1. `peg_ratio` < 1.0 (growth cheaper than market pays for)
+2. `earnings_growth` > 10% (meaningful growth)
+3. `valuation_gap_pct` > 0% (DCF confirms undervaluation)
+4. `return_on_equity` > 15% (quality business)
+5. `debt_to_equity` < 1.0 (healthy balance sheet)
+6. Growth signal = "bullish" OR Fundamentals signal = "bullish"
+
+### BUY Setup (Standard GARP)
+Most conditions true:
+1. `peg_ratio` < 1.5
+2. `earnings_growth` > 5%
+3. `revenue_growth` > 5% (growth is broad-based)
+4. `return_on_equity` > 12%
+5. Overall signal not "BEARISH"
+
+### ACCUMULATE Setup (Value with Growth Catalyst)
+1. `valuation_gap_pct` > 25% (significantly undervalued)
+2. `peg_ratio` < 2.0 (not egregiously expensive)
+3. Positive `earnings_growth` OR positive `fcf_growth`
+4. Wait for fundamental catalyst or technical confirmation
+
+### AVOID Setup
+1. `peg_ratio` > 2.5 (paying too much for growth)
+2. OR `earnings_growth` < 0% (no growth to pay for)
+3. OR `debt_to_equity` > 1.5 (balance sheet risk)
+4. OR `valuation_gap_pct` < -40% (severely overvalued)
+
+---
+
+## Position Sizing Guidelines
+
+### Size by PEG + Valuation Combo
+| PEG Ratio | Valuation Gap | Position Size |
+|-----------|---------------|---------------|
+| < 1.0 | > +15% | Full size (15-20%) |
+| < 1.0 | -15% to +15% | Standard (10-15%) |
+| 1.0 - 1.5 | > +15% | Standard (10-15%) |
+| 1.0 - 1.5 | -15% to +15% | Reduced (5-10%) |
+| 1.5 - 2.0 | > +25% | Small (5%) |
+| > 2.0 | Any | Avoid or minimal |
+
+### Risk Adjustment by Volatility
+| Risk Level | Annual Volatility | Adjustment |
+|------------|-------------------|------------|
+| LOW | < 20% | Full position |
+| MEDIUM | 20-35% | Reduce by 25% |
+| HIGH | > 35% | Reduce by 50% |
+
+---
+
+## Holding Period & Exit Strategy
+
+### Entry Timing
+- Use technical signals (`rsi_14`, `momentum_1m`) to time entries
+- Prefer entering when RSI < 50 (not chasing)
+- Volume confirmation helpful but not required for value
+
+### Exit Triggers
+1. **Valuation Target**: Exit when `valuation_gap_pct` < -15% (becomes overvalued)
+2. **PEG Expansion**: Exit when `peg_ratio` > 2.5
+3. **Growth Deterioration**: Exit if `earnings_growth` turns negative for 2+ quarters
+4. **Fundamental Breakdown**: Exit if `debt_to_equity` > 2.0 or `current_ratio` < 0.8
+
+### Hold Criteria
+- Continue holding while `peg_ratio` < 2.0 AND `earnings_growth` > 0%
+- Ignore short-term price volatility if fundamentals intact
+
+---
+
+## Signal Categories Reference
+
+### Growth Analysis (Primary for GARP)
+Key metrics for growth quality:
+- `metrics.revenue_growth`, `earnings_growth`, `fcf_growth`
+- `metrics.peg_ratio` - THE key GARP metric
+- `metrics.insider_buy_count` vs `insider_sell_count`
+
+### Valuation Analysis (Confirms Value)
+DCF and intrinsic value signals:
+- `metrics.valuation_gap_pct`: Positive = undervalued
+- `metrics.dcf_value`, `owner_earnings_value`
+- `metrics.wacc` - discount rate used
+
+### Fundamentals Analysis (Quality Check)
+Business quality indicators:
+- `metrics.return_on_equity`, `net_margin`, `operating_margin`
+- `metrics.current_ratio`, `debt_to_equity`
+- `scores.profitability`, `scores.health`
+
+### Technical Analysis (Entry Timing Only)
+Use for timing, not primary decision:
+- `reasoning.mean_reversion.metrics.rsi_14` - avoid overbought entries
+- `reasoning.momentum.metrics` - confirms trend direction
+
+### Sentiment Analysis (Confirmation)
+Market perception check:
+- `metrics.news_positive` vs `news_negative`
+- `metrics.insider_net_signal` - smart money direction
+
+---
+
+## Expected Output Format
+
+After analyzing all ticker files, provide recommendations:
+
+```markdown
+## GARP Investment Recommendations
+
+| Ticker | Action | Setup Type | PEG | Val Gap | Key Metrics |
+|--------|--------|------------|-----|---------|-------------|
+| GOOGL | STRONG BUY | High Conviction GARP | 0.8 | +15% | EPS_gr: 18%, ROE: 28%, D/E: 0.4 |
+| META | BUY | Standard GARP | 1.2 | +10% | EPS_gr: 12%, ROE: 25%, D/E: 0.5 |
+| MSFT | HOLD | Fully Valued | 2.1 | -5% | Quality business, wait for pullback |
+| TSLA | AVOID | Growth at Any Price | 3.5 | -40% | PEG too high, severely overvalued |
+
+## Position Sizing
+Based on PEG + valuation gap:
+- GOOGL: 15% position (PEG < 1, positive val gap)
+- META: 10% position (PEG 1-1.5, positive val gap)
+
+## Entry Timing
+- GOOGL: RSI at 45, can enter now
+- META: RSI at 55, acceptable entry
+
+## Watchlist (Waiting for Better Entry)
+- AAPL: Good fundamentals but PEG = 1.8, wait for pullback
+- AMZN: Val gap improving, monitor for PEG < 1.5
+```
+
+---
+
+## File Structure
+- `instructions_value.md` - This file (GARP guide)
+- `{TICKER}.json` - Full analysis data per ticker
+"""
+
+
+def save_scan_results(results: list[dict], scan_date: str, strategy: str = "intraday") -> str:
     """Save scan results to timestamped directory.
+
+    Args:
+        results: List of scan result dictionaries
+        scan_date: Date of the scan
+        strategy: Strategy type ('intraday' or 'value')
 
     Returns the path to the created directory.
     """
@@ -908,10 +1108,10 @@ def save_scan_results(results: list[dict], scan_date: str) -> str:
         with open(ticker_file, "w") as f:
             json.dump(ticker_data, f, indent=2)
 
-    # Save INSTRUCTIONS.md
-    instructions_file = os.path.join(output_dir, "INSTRUCTIONS.md")
+    # Save instructions file with strategy-specific name
+    instructions_file = os.path.join(output_dir, f"instructions_{strategy}.md")
     with open(instructions_file, "w") as f:
-        f.write(get_instructions_content())
+        f.write(get_instructions_content(strategy))
 
     return output_dir
 
@@ -946,6 +1146,13 @@ Examples:
         action="store_true",
         help="Output results as JSON"
     )
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        choices=["intraday", "value"],
+        default="intraday",
+        help="Strategy type: 'intraday' for day trading, 'value' for GARP investing (default: intraday)"
+    )
 
     args = parser.parse_args()
 
@@ -961,11 +1168,11 @@ Examples:
     tickers = [t.strip().upper() for t in args.tickers.split(",")]
 
     # Run scanner
-    results = run_scanner(tickers, api_key, args.detailed, args.json)
+    results = run_scanner(tickers, api_key, args.detailed, args.json, args.strategy)
 
     # Save results to timestamped directory
     scan_date = datetime.now().strftime("%Y-%m-%d")
-    output_dir = save_scan_results(results, scan_date)
+    output_dir = save_scan_results(results, scan_date, args.strategy)
     print(f"\nResults saved to: {output_dir}/")
 
 
