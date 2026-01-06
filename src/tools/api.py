@@ -23,46 +23,73 @@ from src.data.models import (
 _cache = get_cache()
 
 
-def _make_api_request(url: str, headers: dict, method: str = "GET", json_data: dict = None, max_retries: int = 3) -> requests.Response:
+def _make_api_request(url: str, headers: dict, method: str = "GET", json_data: dict = None, max_retries: int = 3, timeout: int = 30) -> requests.Response | None:
     """
     Make an API request with rate limiting handling and moderate backoff.
-    
+
     Args:
         url: The URL to request
         headers: Headers to include in the request
         method: HTTP method (GET or POST)
         json_data: JSON data for POST requests
         max_retries: Maximum number of retries (default: 3)
-    
+        timeout: Request timeout in seconds (default: 30)
+
     Returns:
-        requests.Response: The response object
-    
-    Raises:
-        Exception: If the request fails with a non-429 error
+        requests.Response: The response object, or None if all retries failed
     """
     for attempt in range(max_retries + 1):  # +1 for initial attempt
-        if method.upper() == "POST":
-            response = requests.post(url, headers=headers, json=json_data)
-        else:
-            response = requests.get(url, headers=headers)
-        
-        if response.status_code == 429 and attempt < max_retries:
-            # Linear backoff: 60s, 90s, 120s, 150s...
-            delay = 60 + (30 * attempt)
-            print(f"Rate limited (429). Attempt {attempt + 1}/{max_retries + 1}. Waiting {delay}s before retrying...")
-            time.sleep(delay)
-            continue
-        
-        # Return the response (whether success, other errors, or final 429)
-        return response
+        try:
+            if method.upper() == "POST":
+                response = requests.post(url, headers=headers, json=json_data, timeout=timeout)
+            else:
+                response = requests.get(url, headers=headers, timeout=timeout)
+
+            if response.status_code == 429 and attempt < max_retries:
+                # Linear backoff: 60s, 90s, 120s, 150s...
+                delay = 60 + (30 * attempt)
+                print(f"Rate limited (429). Attempt {attempt + 1}/{max_retries + 1}. Waiting {delay}s before retrying...")
+                time.sleep(delay)
+                continue
+
+            # Return the response (whether success, other errors, or final 429)
+            return response
+        except requests.exceptions.Timeout:
+            if attempt < max_retries:
+                delay = 5 + (5 * attempt)
+                print(f"Request timed out after {timeout}s. Attempt {attempt + 1}/{max_retries + 1}. Retrying in {delay}s...")
+                time.sleep(delay)
+                continue
+            else:
+                print(f"Request timed out after {max_retries + 1} attempts. Skipping...")
+                return None
+        except requests.exceptions.ConnectionError as e:
+            if attempt < max_retries:
+                delay = 5 + (5 * attempt)
+                print(f"Connection error: {e}. Attempt {attempt + 1}/{max_retries + 1}. Retrying in {delay}s...")
+                time.sleep(delay)
+                continue
+            else:
+                print(f"Connection failed after {max_retries + 1} attempts. Skipping...")
+                return None
+    return None
 
 
-def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None) -> list[Price]:
-    """Fetch price data from cache or API."""
+def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None, interval: str = "day", interval_multiplier: int = 1) -> list[Price]:
+    """Fetch price data from cache or API.
+
+    Args:
+        ticker: Stock ticker symbol
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        api_key: Optional API key
+        interval: Price interval - 'minute', 'day', 'week', 'month', 'year'
+        interval_multiplier: Multiplier for interval (e.g., 5 for 5-minute bars)
+    """
     ticker = ticker.upper()
     # Create a cache key that includes all parameters to ensure exact matches
-    cache_key = f"{ticker}_{start_date}_{end_date}"
-    
+    cache_key = f"{ticker}_{start_date}_{end_date}_{interval}_{interval_multiplier}"
+
     # Check cache first - simple exact match
     if cached_data := _cache.get_prices(cache_key):
         return [Price(**price) for price in cached_data]
@@ -73,9 +100,9 @@ def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None)
     if financial_api_key:
         headers["X-API-KEY"] = financial_api_key
 
-    url = f"https://api.financialdatasets.ai/prices/?ticker={ticker}&interval=day&interval_multiplier=1&start_date={start_date}&end_date={end_date}"
+    url = f"https://api.financialdatasets.ai/prices/?ticker={ticker}&interval={interval}&interval_multiplier={interval_multiplier}&start_date={start_date}&end_date={end_date}"
     response = _make_api_request(url, headers)
-    if response.status_code != 200:
+    if not response or response.status_code != 200:
         return []
 
     # Parse response with Pydantic model
@@ -117,7 +144,7 @@ def get_financial_metrics(
 
     url = f"https://api.financialdatasets.ai/financial-metrics/?ticker={ticker}&report_period_lte={end_date}&limit={limit}&period={period}"
     response = _make_api_request(url, headers)
-    if response.status_code != 200:
+    if not response or response.status_code != 200:
         return []
 
     # Parse response with Pydantic model
@@ -161,7 +188,7 @@ def search_line_items(
         "limit": limit,
     }
     response = _make_api_request(url, headers, method="POST", json_data=body)
-    if response.status_code != 200:
+    if not response or response.status_code != 200:
         return []
     
     try:
@@ -209,7 +236,7 @@ def get_insider_trades(
         url += f"&limit={limit}"
 
         response = _make_api_request(url, headers)
-        if response.status_code != 200:
+        if not response or response.status_code != 200:
             break
 
         try:
@@ -275,7 +302,7 @@ def get_company_news(
         url += f"&limit={limit}"
 
         response = _make_api_request(url, headers)
-        if response.status_code != 200:
+        if not response or response.status_code != 200:
             break
 
         try:
@@ -326,8 +353,9 @@ def get_market_cap(
 
         url = f"https://api.financialdatasets.ai/company/facts/?ticker={ticker}"
         response = _make_api_request(url, headers)
-        if response.status_code != 200:
-            print(f"Error fetching company facts: {ticker} - {response.status_code}")
+        if not response or response.status_code != 200:
+            status = response.status_code if response else "connection failed"
+            print(f"Error fetching company facts: {ticker} - {status}")
             return None
 
         data = response.json()

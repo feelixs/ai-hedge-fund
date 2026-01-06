@@ -54,6 +54,7 @@ node_modules
 
 # Outputs
 outputs/
+scans/
 
 # Database files (users will have their own local databases)
 *.db
