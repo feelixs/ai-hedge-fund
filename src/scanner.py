@@ -60,7 +60,7 @@ from src.agents.growth_agent import (
 )
 
 # Default tickers to scan
-DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AMD', 'INTC', 'SPY', 'QQQ']
+DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AMD', 'INTC', 'PLTR', 'LMT']
 
 # Intraday settings
 INTRADAY_LOOKBACK_DAYS = 30  # 30 trading days of minute data
@@ -795,6 +795,53 @@ Most conditions true:
 2. `momentum_1m` < -0.03 (negative momentum)
 3. `volume_momentum` > 1.2 on down moves
 4. OR `volatility_regime` > 1.3 (elevated volatility)
+
+---
+
+## Short Signal Identification
+
+### SHORT Setup (Momentum Breakdown)
+All conditions must be true:
+1. `momentum_1m` < -0.03 (-3% momentum breakdown)
+2. `volume_momentum` > 1.2 (volume confirming the move)
+3. `rsi_14` < 50 and falling (not oversold yet)
+4. `adx` > 25 (trend is strong)
+5. Technical signal = "bearish"
+
+### SHORT Setup (Overbought Reversal)
+All conditions must be true:
+1. `rsi_14` > 75 (extremely overbought)
+2. `z_score` > +2.5 (statistically extended)
+3. `price_vs_bb` > 0.9 (near upper Bollinger Band)
+4. `momentum_1m` showing deceleration or turning negative
+5. Wait for bearish reversal candle confirmation
+
+### SHORT Setup (Failed Breakout)
+1. Price above upper Bollinger Band then reverses back inside
+2. `volume_momentum` > 1.0 on reversal candle
+3. `rsi_14` divergence (price higher high, RSI lower high)
+4. `adx` < 25 (weak trend = prone to reversal)
+
+### Short Position Management
+
+**Stop Loss for Shorts:**
+```
+Stop Loss = Entry Price + (2.5 × atr_ratio × Entry Price)
+```
+Note: Use 2.5x ATR for shorts (wider than longs due to unlimited risk)
+
+**Position Sizing for Shorts:**
+| volatility_regime | Short Position Size |
+|-------------------|---------------------|
+| < 0.8 | Max 75% of normal size |
+| 0.8 - 1.0 | Max 50% of normal size |
+| > 1.0 | Avoid shorting or 25% size |
+
+**Cover Triggers:**
+1. `rsi_14` < 30 (becoming oversold)
+2. `z_score` < -1.5 (mean reversion target)
+3. `momentum_1m` turns positive
+4. Volume spike on down move (potential capitulation)
 
 ---
 
