@@ -60,7 +60,23 @@ from src.agents.growth_agent import (
 )
 
 # Default tickers to scan
-DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AMD', 'INTC', 'PLTR', 'LMT']
+DEFAULT_TICKERS = [
+    # Tech
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AMD', 'INTC', 'PLTR',
+    'CRM', 'ORCL', 'ADBE', 'CSCO', 'IBM', 'NFLX',
+    # Financials
+    'JPM', 'BAC', 'GS', 'V', 'MA', 'BRK-B',
+    # Healthcare
+    'JNJ', 'UNH', 'PFE', 'ABBV', 'LLY', 'MRK',
+    # Energy
+    'XOM', 'CVX', 'COP',
+    # Consumer
+    'WMT', 'COST', 'HD', 'MCD', 'NKE', 'SBUX', 'KO', 'PEP',
+    # Industrials & Defense
+    'LMT', 'CAT', 'BA', 'GE', 'HON', 'UPS', 'RTX',
+    # Communications
+    'DIS', 'T', 'VZ', 'CMCSA',
+]
 
 # Intraday settings
 INTRADAY_LOOKBACK_DAYS = 30  # 30 trading days of minute data
@@ -934,6 +950,38 @@ Based on volatility regime and risk levels:
 
 ---
 
+## Current Holdings Check
+
+**IMPORTANT: Before providing recommendations, ask the user which stocks (if any) they are currently holding.**
+
+This allows you to:
+1. Provide SELL recommendations for positions that should be exited
+2. Identify HOLD vs SELL decisions for existing positions
+3. Flag any holdings that have deteriorating signals
+
+### Sell Signal Identification (For Current Holdings)
+
+**SELL Setup (Momentum Reversal)**
+1. `momentum_1m` < -0.02 after being positive (momentum reversal)
+2. `rsi_14` > 70 then drops below 65 (overbought breakdown)
+3. `volume_momentum` > 1.2 on down moves (distribution)
+4. Technical signal changes from "bullish" to "bearish" or "neutral"
+
+**SELL Setup (Stop Loss Triggered)**
+1. Price falls 2x ATR below entry (if user provides entry price)
+2. `volatility_regime` > 1.3 (elevated risk environment)
+
+**SELL Setup (Fundamental Deterioration)**
+1. Overall signal moves to "BEARISH"
+2. Multiple category signals flip bearish
+3. `insider_net_signal` = "bearish" (insiders selling)
+
+### Questions to Ask
+- "Which stocks are you currently holding?"
+- "What were your entry prices for each position?" (for stop loss calculations)
+
+---
+
 ## File Structure
 - `instructions_intraday.md` - This file (trading guide)
 - `{TICKER}.json` - Full analysis data per ticker
@@ -1116,6 +1164,43 @@ Based on PEG + valuation gap:
 - AAPL: Good fundamentals but PEG = 1.8, wait for pullback
 - AMZN: Val gap improving, monitor for PEG < 1.5
 ```
+
+---
+
+## Current Holdings Check
+
+**IMPORTANT: Before providing recommendations, ask the user which stocks (if any) they are currently holding.**
+
+This allows you to:
+1. Provide SELL recommendations for positions that should be exited
+2. Distinguish between HOLD and SELL decisions for existing positions
+3. Identify positions where the GARP thesis has broken down
+
+### Sell Signal Identification (For Current Holdings)
+
+**SELL Setup (Valuation Target Reached)**
+1. `valuation_gap_pct` < -15% (stock has become overvalued)
+2. `peg_ratio` > 2.5 (paying too much for remaining growth)
+
+**SELL Setup (Growth Deterioration)**
+1. `earnings_growth` turns negative
+2. `revenue_growth` < 0% (growth story broken)
+3. `fcf_growth` negative for 2+ periods
+
+**SELL Setup (Fundamental Breakdown)**
+1. `debt_to_equity` > 2.0 (balance sheet deterioration)
+2. `current_ratio` < 0.8 (liquidity concerns)
+3. `return_on_equity` drops significantly (competitive advantage eroding)
+4. Growth signal changes to "bearish"
+
+**SELL Setup (Better Opportunity)**
+1. Current holding at `peg_ratio` > 2.0
+2. New opportunity with `peg_ratio` < 1.0 and similar quality
+
+### Questions to Ask
+- "Which stocks are you currently holding?"
+- "What were your entry prices and purchase dates?" (for performance tracking)
+- "What was your original investment thesis for each position?" (to evaluate if thesis still holds)
 
 ---
 
