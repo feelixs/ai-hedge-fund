@@ -1,113 +1,117 @@
-# Claude Code analyst agent — design
+# Claude Code as an LLM model (file bridge) — design
 
 ## Summary
 
-Add a new analyst, `claude_code_agent`, to the hedge fund. It mirrors the
-existing analyst pattern (a function over `state`/`tickers` that produces a
-`{signal, confidence, reasoning}` per ticker and stores it in
-`state["data"]["analyst_signals"][agent_id]`), but replaces the in-process
-`call_llm()` step with a **file-based human-in-the-loop bridge** to an
-interactive Claude Code session.
+Add **"Claude Code"** as a selectable *model* in the LLM picker (not as an
+analyst). When chosen, every LLM call the hedge fund makes is routed through a
+**file-based human-in-the-loop bridge** to an interactive Claude Code session
+instead of hitting a paid API:
 
-This lets the user answer the analyst prompts with their Claude Code
-subscription/tools instead of paying for an API LLM call.
+- The app serializes the calling agent's prompt to `claude_agent/prompt.md`.
+- It pauses the `rich` Live display and blocks on `input()`.
+- The user runs `/answer-hedge-agent` in a separate Claude Code session, which
+  answers the prompt and writes `claude_agent/output.json`.
+- The user presses **Enter**; the app reads + validates the JSON and returns it
+  to the calling agent as if it were a normal LLM response.
 
-## Flow
+This is the corrected location for the feature. The earlier iteration added a
+standalone "Claude Code" *analyst*; that was wrong — the intent is to use a
+Claude Code session as the model backend for all of the existing analysts.
 
-1. For each selected ticker, the app fetches the **standard analyst bundle**
-   and writes a self-contained prompt to `claude_agent/prompts/<TICKER>.md`.
-2. The agent **pauses the `rich` Live progress display** and blocks on
-   `input()`, printing the prompt path(s) and the slash command to run.
-3. In a separate Claude Code session the user runs `/answer-hedge-agent`,
-   which reads every pending `claude_agent/prompts/*.md`, analyzes each, and
-   writes `claude_agent/outputs/<TICKER>.json`.
-4. The user presses **Enter**. The agent reads each `outputs/<TICKER>.json`,
-   validates it against the signal schema, restarts the Live display, and
-   stores the result like any other analyst.
+## Integration point
+
+`call_llm()` in `src/utils/llm.py` is the single chokepoint every LLM-using
+agent (the personas + the portfolio manager) passes through. The bridge hooks
+in there: after `call_llm` resolves `model_name` / `model_provider`, if the
+provider is `"Claude Code"` it returns `call_claude_code(...)` and never
+constructs a real API client.
+
+Because it sits at the chokepoint, **no per-agent wiring is needed** — selecting
+the model routes everything automatically.
+
+### UX consequence
+
+LLM calls run sequentially through the LangGraph workflow, so they cannot be
+batched into one answer. With the Claude Code model selected there is one
+prompt + one Enter per LLM-using analyst, plus one for the portfolio manager,
+per ticker. Rule-based analysts (Sentiment, Fundamentals, Technicals,
+Valuation) make no LLM call and cost nothing.
 
 ## Components
 
-### `src/agents/claude_code.py` — the agent
+### `src/llm/models.py`
 
-- Signature: `claude_code_agent(state: AgentState, agent_id: str = "claude_code_agent")`.
-- Per-ticker data fetch (mirrors the Buffett-style bundle):
-  - `get_financial_metrics(ticker, end_date, period="ttm", limit=10)`
-  - `search_line_items(ticker, [...key items...], end_date, period="ttm", limit=10)`
-    — revenue, net_income, free_cash_flow, total_assets, total_liabilities,
-    shareholders_equity, outstanding_shares, etc.
-  - `get_market_cap(ticker, end_date)`
-  - `get_company_news(ticker, end_date, limit=...)`
-  - `get_prices(ticker, start_date, end_date)` → `prices_to_df(...)` for recent
-    price action (summarized, not the full frame).
-- Writes one prompt file per ticker, blocks for the human, then reads one
-  output file per ticker.
-- Stores results in the standard shape and returns
-  `{"messages": [HumanMessage(json, name=agent_id)], "data": state["data"]}`.
+- Add `ModelProvider.CLAUDE_CODE = "Claude Code"`.
+- `get_model()` gets a defensive branch for `CLAUDE_CODE` that raises a clear
+  error (it must never be constructed as a real client — the bridge handles it
+  in `call_llm`).
 
-### Signal model
+### `src/llm/api_models.json`
 
-```python
-class ClaudeCodeSignal(BaseModel):
-    signal: Literal["bullish", "bearish", "neutral"]
-    confidence: int = Field(description="Confidence 0-100")
-    reasoning: str = Field(description="Reasoning for the decision")
+Add one entry so it appears in the picker:
+
+```json
+{ "display_name": "Claude Code", "model_name": "claude-code", "provider": "Claude Code" }
 ```
 
-### Files (runtime scratch under `claude_agent/`)
+### `src/llm/claude_code_bridge.py` (new)
 
-- Prompt: `claude_agent/prompts/<TICKER>.md` — human-readable. Contains the
-  ticker, an instruction to act as an investment analyst, the embedded JSON
-  facts, and an explicit spec of the exact output path + JSON schema to write.
-- Output: `claude_agent/outputs/<TICKER>.json` — must match:
-  ```json
-  { "signal": "bullish|bearish|neutral", "confidence": 0-100, "reasoning": "..." }
-  ```
-  Validated via `ClaudeCodeSignal`.
+`call_claude_code(prompt, pydantic_model, agent_name=None, state=None, default_factory=None)`:
 
-### `.claude/commands/answer-hedge-agent.md` — the slash command
+1. Ensure `claude_agent/` exists; delete any stale `output.json`.
+2. Serialize the prompt (`prompt.to_string()` for a ChatPromptValue) into
+   `claude_agent/prompt.md`, embedding the target `pydantic_model`'s JSON schema
+   and the exact output path/instructions.
+3. Pause the Live display (only if it was running), print the prompt path and
+   slash command, block on `input()`, then restart the Live display.
+4. Read `claude_agent/output.json`, validate with `pydantic_model(**raw)`, and
+   return it. On any failure: print to stderr and fall back to
+   `default_factory()` (or `create_default_response(pydantic_model)`) — never a
+   silent default.
 
-Globs `claude_agent/prompts/*.md`, answers each prompt as an investment
-analyst, writes the matching `claude_agent/outputs/<TICKER>.json`, and reports
-which tickers it completed.
+Single fixed file pair (`prompt.md` / `output.json`) is safe because calls are
+strictly sequential — each call overwrites the prompt, blocks until answered,
+and reads the answer before the next call runs.
 
-### Registration — `src/utils/analysts.py`
+### `src/utils/llm.py`
 
-Add the import and one `ANALYST_CONFIG` entry:
+In `call_llm`, immediately after resolving `model_name` / `model_provider` and
+before `get_model_info` / `get_model`:
 
 ```python
-"claude_code": {
-    "display_name": "Claude Code",
-    "description": "Interactive Claude Code Analyst",
-    "investing_style": "Bridges analysis to an interactive Claude Code session via prompt/output files for human-in-the-loop reasoning.",
-    "agent_func": claude_code_agent,
-    "type": "analyst",
-    "order": 17,
-},
+if str(model_provider) == ModelProvider.CLAUDE_CODE.value:
+    return call_claude_code(prompt, pydantic_model, agent_name=agent_name,
+                            state=state, default_factory=default_factory)
 ```
 
-This auto-wires into the interactive analyst menu, the LangGraph workflow, and
-the API agents list.
+### `.claude/commands/answer-hedge-agent.md`
 
-## Key behaviors & edge cases
+Rewritten to answer the single pending `claude_agent/prompt.md`: read it, do the
+analysis, and write `claude_agent/output.json` as raw JSON matching the embedded
+schema. Remind the user to return to the app and press Enter.
 
-- **Live-display conflict (main risk):** analysts run sequentially in
-  LangGraph's default executor, so the agent calls `progress.stop()` before
-  `input()` and `progress.start()` after. Without this the `rich` Live render
-  garbles both the printed prompt and the user's keystrokes.
-- **Stale files:** at the start of its run the agent clears/overwrites the
-  `claude_agent/prompts/` and `claude_agent/outputs/` files for the current
-  tickers, so a previous run's outputs cannot be mistakenly read.
-- **Fail loudly (per CLAUDE.md):** if an output file is missing or malformed,
-  that ticker falls back to
-  `{"signal": "neutral", "confidence": 0, "reasoning": "<error detail>"}` and
-  the error is printed to stderr — never silently defaulted. No import
-  fallbacks anywhere.
-- **`.gitignore`:** add `claude_agent/` (runtime scratch files).
+## Removed (from the earlier iteration)
+
+- `src/agents/claude_code.py` (the standalone analyst) — deleted.
+- The `claude_code` entry + import in `src/utils/analysts.py` — removed.
+
+## Unchanged
+
+- `.gitignore` already ignores `claude_agent/` and tracks `.claude/commands/`.
+
+## Edge cases
+
+- **Live-display conflict:** pause/restart `rich` Live around `input()`, guarded
+  on whether it was actually running (so API/headless use doesn't spawn a Live
+  display).
+- **Stale answers:** delete `output.json` before blocking.
+- **Fail loudly (per CLAUDE.md):** missing/malformed output prints to stderr and
+  falls back to the call's default, never a silent value. No import fallbacks.
+- **Defensive `get_model`:** raises if ever asked to build a Claude Code client.
 
 ## Out of scope
 
-- No automatic invocation of Claude Code from the app — the user runs the slash
-  command manually and presses Enter.
-- No polling/watching of the output directory — synchronization is the Enter
-  keypress.
-- No changes to risk/portfolio managers or the downstream signal aggregation.
+- Auto-invoking Claude Code from the app (user runs the slash command manually).
+- Polling/watching the output dir (sync is the Enter keypress).
+- Batching multiple agent calls into one answer (not possible given sequential
+  graph execution).
