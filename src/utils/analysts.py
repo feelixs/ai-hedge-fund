@@ -6,6 +6,7 @@ from src.agents.ben_graham import ben_graham_agent
 from src.agents.bill_ackman import bill_ackman_agent
 from src.agents.cathie_wood import cathie_wood_agent
 from src.agents.charlie_munger import charlie_munger_agent
+from src.agents.claude_code import claude_code_agent
 from src.agents.fundamentals import fundamentals_analyst_agent
 from src.agents.michael_burry import michael_burry_agent
 from src.agents.phil_fisher import phil_fisher_agent
@@ -165,6 +166,14 @@ ANALYST_CONFIG = {
         "agent_func": valuation_analyst_agent,
         "type": "analyst",
         "order": 16,
+    },
+    "claude_code": {
+        "display_name": "Claude Code",
+        "description": "Interactive Claude Code Analyst",
+        "investing_style": "Bridges analysis to an interactive Claude Code session via prompt/output files for human-in-the-loop reasoning.",
+        "agent_func": claude_code_agent,
+        "type": "analyst",
+        "order": 17,
     },
 }
 
