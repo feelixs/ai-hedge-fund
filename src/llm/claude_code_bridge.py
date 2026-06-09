@@ -1,19 +1,22 @@
 """File-based bridge that routes LLM calls to an interactive Claude Code session.
 
 When the user selects the "Claude Code" model, every ``call_llm()`` invocation is
-serialized to ``claude_agent/prompt.md``; the app pauses the progress display and
-blocks until the user answers the prompt via the ``/answer-hedge-agent`` slash
-command (which writes ``claude_agent/output.json``) and presses Enter. The JSON
-answer is then read back and validated against the caller's Pydantic model.
+serialized to its **own** prompt file under ``claude_agent/prompts/`` and then the
+calling thread polls for the matching answer file under ``claude_agent/outputs/``.
 
-A single fixed prompt/output file pair is safe because LLM calls run strictly
-sequentially through the workflow: each call overwrites the prompt, blocks until
-answered, and reads the answer before the next call runs.
+The hedge fund runs its analysts concurrently (LangGraph fans them out across
+threads), so a shared prompt file or an ``input()`` block does not work — many
+calls are in flight at once. Giving each call a unique file pair and polling for
+the answer lets them all wait in parallel. The user answers them with the
+``/answer-hedge-agent`` slash command, which fans out one subagent per pending
+prompt file and writes each answer.
 """
 
-import json
+import itertools
 import os
 import sys
+import threading
+import time
 
 from pydantic import BaseModel
 
@@ -22,9 +25,44 @@ from src.utils.progress import progress
 # claude_agent/ lives at the project root (this file is at src/llm/claude_code_bridge.py).
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CLAUDE_AGENT_DIR = os.path.join(PROJECT_ROOT, "claude_agent")
-PROMPT_FILE = os.path.join(CLAUDE_AGENT_DIR, "prompt.md")
-OUTPUT_FILE = os.path.join(CLAUDE_AGENT_DIR, "output.json")
+PROMPTS_DIR = os.path.join(CLAUDE_AGENT_DIR, "prompts")
+OUTPUTS_DIR = os.path.join(CLAUDE_AGENT_DIR, "outputs")
 SLASH_COMMAND = "/answer-hedge-agent"
+POLL_SECONDS = 1.0
+
+# Unique, thread-safe id per LLM call so concurrent calls never share a file.
+_id_counter = itertools.count()
+_init_lock = threading.Lock()
+_initialized = False
+
+
+def _ensure_clean_dirs() -> None:
+    """Create the prompt/output dirs and wipe leftovers from a previous run (once)."""
+    global _initialized
+    with _init_lock:
+        for directory in (PROMPTS_DIR, OUTPUTS_DIR):
+            os.makedirs(directory, exist_ok=True)
+        if _initialized:
+            return
+        for directory in (PROMPTS_DIR, OUTPUTS_DIR):
+            for name in os.listdir(directory):
+                if name.endswith((".md", ".json")):
+                    try:
+                        os.remove(os.path.join(directory, name))
+                    except OSError:
+                        pass
+        _announce_once()
+        _initialized = True
+
+
+def _announce_once() -> None:
+    line = "=" * 70
+    print(f"\n{line}", file=sys.stderr)
+    print("Claude Code model active.", file=sys.stderr)
+    print(f"As prompts appear under claude_agent/prompts/, run  {SLASH_COMMAND}", file=sys.stderr)
+    print("in a Claude Code session in this repo. It fans out a subagent per", file=sys.stderr)
+    print("pending prompt and writes each answer to claude_agent/outputs/.", file=sys.stderr)
+    print(line, file=sys.stderr)
 
 
 def _prompt_to_text(prompt) -> str:
@@ -36,18 +74,28 @@ def _prompt_to_text(prompt) -> str:
     return str(prompt)
 
 
-def _write_prompt(prompt, pydantic_model: type[BaseModel], agent_name: str | None) -> None:
+def _safe(agent_name: str | None) -> str:
+    if not agent_name:
+        return "llm"
+    return "".join(c if (c.isalnum() or c in "-_") else "_" for c in agent_name)
+
+
+def _write_prompt(prompt_path: str, output_path: str, prompt, pydantic_model: type[BaseModel], agent_name: str | None) -> None:
+    import json
+
     schema = json.dumps(pydantic_model.model_json_schema(), indent=2)
     body = _prompt_to_text(prompt)
-    out_rel = os.path.relpath(OUTPUT_FILE, PROJECT_ROOT)
+    out_rel = os.path.relpath(output_path, PROJECT_ROOT)
     heading = f"# Hedge Fund LLM Request — {agent_name}" if agent_name else "# Hedge Fund LLM Request"
     content = f"""{heading}
 
-You are answering an LLM call for the AI hedge fund. Read the request below,
-do the analysis it asks for, and write your answer to `{out_rel}`.
+You are answering one LLM call for the AI hedge fund. Read the request below,
+do the analysis it asks for as that agent, and write your answer to:
 
-The output file MUST contain ONLY valid JSON matching the schema below — no
-markdown fences, no prose around it.
+`{out_rel}`
+
+That output file MUST contain ONLY valid JSON matching the schema below — no
+markdown fences, no prose around it, no extra keys.
 
 ## Required JSON schema
 
@@ -59,38 +107,20 @@ markdown fences, no prose around it.
 
 {body}
 """
-    with open(PROMPT_FILE, "w") as f:
+    # Write atomically-ish: write a temp file then rename, so the slash command
+    # never globs a half-written prompt.
+    tmp_path = prompt_path + ".tmp"
+    with open(tmp_path, "w") as f:
         f.write(content)
+    os.replace(tmp_path, prompt_path)
 
 
-def _wait_for_human(agent_name: str | None) -> None:
-    """Pause the rich Live display (if running) and block until the user presses Enter."""
-    # The Live display owns the terminal; stop it or it garbles the prompt and the
-    # user's keystrokes. Guard on `started` so headless/API use doesn't spawn one.
-    was_started = progress.started
-    if was_started:
-        progress.stop()
-    try:
-        line = "=" * 70
-        label = f" ({agent_name})" if agent_name else ""
-        print(f"\n{line}", file=sys.stderr)
-        print(f"Claude Code model{label}: prompt written, awaiting your analysis.", file=sys.stderr)
-        print(f"  prompt: {os.path.relpath(PROMPT_FILE, PROJECT_ROOT)}", file=sys.stderr)
-        print(f"\nIn a Claude Code session in this repo, run:  {SLASH_COMMAND}", file=sys.stderr)
-        print(f"It will write your answer to {os.path.relpath(OUTPUT_FILE, PROJECT_ROOT)}", file=sys.stderr)
-        print(line, file=sys.stderr)
-        input("\nPress Enter once Claude Code has finished writing the output... ")
-    finally:
-        if was_started:
-            progress.start()
-
-
-def _read_output(pydantic_model: type[BaseModel], agent_name: str | None, default_factory):
+def _read_output(output_path: str, pydantic_model: type[BaseModel], agent_name: str | None, default_factory):
     """Read and validate the answer file, failing loudly to the call's default."""
+    import json
+
     try:
-        if not os.path.exists(OUTPUT_FILE):
-            raise FileNotFoundError(f"expected output file not found: {OUTPUT_FILE}")
-        with open(OUTPUT_FILE, "r") as f:
+        with open(output_path, "r") as f:
             raw = json.load(f)
         return pydantic_model(**raw)
     except Exception as e:  # noqa: BLE001 - report any failure loudly, never silently default
@@ -104,11 +134,27 @@ def _read_output(pydantic_model: type[BaseModel], agent_name: str | None, defaul
 
 
 def call_claude_code(prompt, pydantic_model: type[BaseModel], agent_name: str | None = None, state=None, default_factory=None):
-    """Route a single LLM call through the interactive Claude Code file bridge."""
-    os.makedirs(CLAUDE_AGENT_DIR, exist_ok=True)
-    # Clear any stale answer so we never read a previous call's output.
-    if os.path.exists(OUTPUT_FILE):
-        os.remove(OUTPUT_FILE)
-    _write_prompt(prompt, pydantic_model, agent_name)
-    _wait_for_human(agent_name)
-    return _read_output(pydantic_model, agent_name, default_factory)
+    """Route a single LLM call through the Claude Code file bridge and wait for the answer."""
+    _ensure_clean_dirs()
+
+    call_id = f"{_safe(agent_name)}__{next(_id_counter)}"
+    prompt_path = os.path.join(PROMPTS_DIR, f"{call_id}.md")
+    output_path = os.path.join(OUTPUTS_DIR, f"{call_id}.json")
+
+    _write_prompt(prompt_path, output_path, prompt, pydantic_model, agent_name)
+    progress.update_status(agent_name, None, f"Waiting for Claude Code — run {SLASH_COMMAND}")
+
+    # Poll until the slash command (via its subagent) writes our answer file.
+    while not os.path.exists(output_path):
+        time.sleep(POLL_SECONDS)
+
+    result = _read_output(output_path, pydantic_model, agent_name, default_factory)
+
+    # Consume the files so a later /answer-hedge-agent run won't re-answer them.
+    for path in (prompt_path, output_path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    return result

@@ -1,34 +1,46 @@
 ---
-description: Answer the pending Claude Code hedge-fund LLM prompt
+description: Answer all pending Claude Code hedge-fund LLM prompts (fans out a subagent per prompt)
 ---
 
 You are the model backend for the AI hedge fund. When the user selects the
-"Claude Code" model, the running app writes one LLM request at a time to
-`claude_agent/prompt.md` and blocks waiting for you to answer it.
+"Claude Code" model, the running app writes one file per in-flight LLM call to
+`claude_agent/prompts/<id>.md`, and each calling thread polls for its matching
+answer at `claude_agent/outputs/<id>.json`. The analysts run concurrently, so
+there are usually several pending prompts at once.
 
 ## Steps
 
-1. Read `claude_agent/prompt.md`. If it does not exist, tell the user there is
-   nothing to answer and stop.
-2. The file contains:
-   - a `## Required JSON schema` block describing the exact JSON the app expects,
-   - a `## Request` block — the actual prompt from the calling agent (a persona
-     analyst like Warren Buffett, or the portfolio manager), including the facts
-     to reason over.
-3. Do the analysis the request asks for, as that agent. Reason carefully, then
-   produce a result that matches the required schema exactly.
-4. Write the result to `claude_agent/output.json`. The file MUST contain **only**
-   valid JSON matching the schema — no markdown fences, no prose, no extra keys.
-   - `signal` fields must be exactly one of the allowed strings
-     (`bullish` / `bearish` / `neutral`) when present.
-   - `confidence` must be an integer 0-100 when present.
-5. Tell the user you have written `claude_agent/output.json` and remind them to
-   return to the app terminal and press Enter so the app reads your answer.
+1. List the pending prompts: glob `claude_agent/prompts/*.md`. If there are
+   none, tell the user there is nothing to answer and stop.
+2. **Fan out one subagent per prompt file, in parallel** — send all the Task
+   tool calls in a single message so they run concurrently. Use the
+   `general-purpose` subagent type. Give each subagent this instruction,
+   substituting the absolute path of its assigned prompt file:
+
+   > Read the file `<ABSOLUTE_PROMPT_PATH>`. It contains a `## Required JSON
+   > schema` block and a `## Request` block (the actual prompt from a hedge-fund
+   > agent — a persona analyst like Warren Buffett, or the portfolio manager —
+   > with the facts to reason over). Do the analysis the request asks for, as
+   > that agent. Then write your answer to the exact output path named near the
+   > top of the prompt file (`claude_agent/outputs/<id>.json`). The output file
+   > MUST contain ONLY valid JSON matching the schema — no markdown fences, no
+   > prose, no extra keys. `signal` must be one of `bullish`/`bearish`/`neutral`
+   > when present; `confidence` must be an integer 0-100 when present. After
+   > writing the file, report back the id and your chosen signal.
+
+3. Once all subagents have finished, report a short summary to the user: which
+   ids you answered and each verdict. Remind them the app picks up the answers
+   automatically (it is polling) — no Enter needed.
 
 ## Notes
 
-- There is exactly one pending prompt at a time. Answer it, then stop.
-- The schema varies by caller — persona analysts use a simple
-  `{signal, confidence, reasoning}`; the portfolio manager uses a richer
-  decisions object. Always follow the schema embedded in `prompt.md`.
-- Do not modify `prompt.md`. Only write `claude_agent/output.json`.
+- Answer **every** pending prompt; the app has a thread blocked waiting on each
+  one. A missed prompt leaves an analyst hanging forever.
+- The schema is embedded in each prompt file and varies by caller — persona
+  analysts use `{signal, confidence, reasoning}`; the portfolio manager uses a
+  richer decisions object. Always follow the schema in the file.
+- Do not modify or delete the prompt files. Only write the
+  `claude_agent/outputs/<id>.json` files (the app deletes both once it has
+  consumed the answer).
+- If new prompts appear after you finish (a later workflow stage, e.g. the
+  portfolio manager), just run `/answer-hedge-agent` again.
