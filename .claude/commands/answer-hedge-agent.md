@@ -14,8 +14,11 @@ there are usually several pending prompts at once.
    none, tell the user there is nothing to answer and stop.
 2. **Fan out one subagent per prompt file, in parallel** — send all the Task
    tool calls in a single message so they run concurrently. Use the
-   `general-purpose` subagent type. Give each subagent this instruction,
-   substituting the absolute path of its assigned prompt file:
+   `general-purpose` subagent type, and **spawn every subagent on the Sonnet
+   model** (pass `model: "sonnet"` to each Task call). Sonnet is the right tier
+   for this read-reason-write task and conserves the Max plan's usage limits —
+   do not spawn these on Opus. Give each subagent this instruction, substituting
+   the absolute path of its assigned prompt file:
 
    > Read the file `<ABSOLUTE_PROMPT_PATH>`. It contains a `## Required JSON
    > schema` block and a `## Request` block (the actual prompt from a hedge-fund
