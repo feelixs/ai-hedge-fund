@@ -1,4 +1,10 @@
 .claude/*
+# Track the hedge-fund slash command, ignore the rest of .claude/
+!.claude/commands/
+
+# Claude Code analyst runtime scratch files (prompts + outputs)
+claude_agent/
+
 # Python
 __pycache__/
 *.py[cod]
