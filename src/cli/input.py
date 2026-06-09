@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -41,6 +42,13 @@ def add_common_args(
     if include_ollama:
         parser.add_argument("--ollama", action="store_true", help="Use Ollama for local LLM inference")
     parser.add_argument("--model", type=str, required=False, help="Model name to use (e.g., gpt-4o)")
+    parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["financialdatasets", "yfinance"],
+        default=None,
+        help="Market data source (default: financialdatasets; yfinance is free/no-key but lower fidelity). Also honored via the DATA_SOURCE env var.",
+    )
     return parser
 
 
@@ -261,6 +269,12 @@ def parse_cli_inputs(
         parser.add_argument("--show-agent-graph", action="store_true", help="Show the agent graph")
 
     args = parser.parse_args()
+
+    # Apply the data-source selection so src.tools.api routing picks it up.
+    # An explicit --data-source flag wins; otherwise an existing DATA_SOURCE env
+    # var is left in place.
+    if getattr(args, "data_source", None):
+        os.environ["DATA_SOURCE"] = args.data_source
 
     # Normalize parsed values
     tickers = parse_tickers(getattr(args, "tickers", None))

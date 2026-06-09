@@ -1,10 +1,12 @@
 import datetime
+import functools
 import os
 import pandas as pd
 import requests
 import time
 
 from src.data.cache import get_cache
+from src.tools.data_source import YFINANCE, get_data_source
 from src.data.models import (
     CompanyNews,
     CompanyNewsResponse,
@@ -21,6 +23,22 @@ from src.data.models import (
 
 # Global cache instance
 _cache = get_cache()
+
+
+def _route(fn):
+    """Dispatch to the yfinance provider when DATA_SOURCE=yfinance, else run fn unchanged."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if get_data_source() == YFINANCE:
+            from src.tools import yfinance_provider as _yp
+
+            impl = getattr(_yp, fn.__name__, None)
+            if impl is not None:
+                return impl(*args, **kwargs)
+        return fn(*args, **kwargs)
+
+    return wrapper
 
 
 def _make_api_request(url: str, headers: dict, method: str = "GET", json_data: dict = None, max_retries: int = 3, timeout: int = 30) -> requests.Response | None:
@@ -75,6 +93,7 @@ def _make_api_request(url: str, headers: dict, method: str = "GET", json_data: d
     return None
 
 
+@_route
 def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None, interval: str = "day", interval_multiplier: int = 1) -> list[Price]:
     """Fetch price data from cache or API.
 
@@ -120,6 +139,7 @@ def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None,
     return prices
 
 
+@_route
 def get_financial_metrics(
     ticker: str,
     end_date: str,
@@ -162,6 +182,7 @@ def get_financial_metrics(
     return financial_metrics
 
 
+@_route
 def search_line_items(
     ticker: str,
     line_items: list[str],
@@ -204,6 +225,7 @@ def search_line_items(
     return search_results[:limit]
 
 
+@_route
 def get_insider_trades(
     ticker: str,
     end_date: str,
@@ -270,6 +292,7 @@ def get_insider_trades(
     return all_trades
 
 
+@_route
 def get_company_news(
     ticker: str,
     end_date: str,
@@ -336,6 +359,7 @@ def get_company_news(
     return all_news
 
 
+@_route
 def get_market_cap(
     ticker: str,
     end_date: str,
