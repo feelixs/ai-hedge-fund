@@ -31,6 +31,7 @@ class ModelProvider(str, Enum):
     GIGACHAT = "GigaChat"
     AZURE_OPENAI = "Azure OpenAI"
     XAI = "xAI"
+    CLAUDE_CODE = "Claude Code"
 
 
 class LLMModel(BaseModel):
@@ -140,6 +141,10 @@ PRINTED_KEY = False
 
 def get_model(model_name: str, model_provider: ModelProvider, api_keys: dict = None) -> ChatOpenAI | ChatGroq | ChatOllama | GigaChat | None:
     global PRINTED_KEY
+    if model_provider == ModelProvider.CLAUDE_CODE:
+        # The Claude Code model is handled by the file bridge in call_llm() and
+        # must never be constructed as a real API client.
+        raise ValueError("Claude Code model is handled via the file bridge in call_llm(), not get_model().")
     if model_provider == ModelProvider.GROQ:
         api_key = (api_keys or {}).get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
         if not api_key:

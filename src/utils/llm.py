@@ -2,7 +2,8 @@
 
 import json
 from pydantic import BaseModel
-from src.llm.models import get_model, get_model_info
+from src.llm.models import ModelProvider, get_model, get_model_info
+from src.llm.claude_code_bridge import call_claude_code
 from src.utils.progress import progress
 from src.graph.state import AgentState
 
@@ -37,6 +38,10 @@ def call_llm(
         # Use system defaults when no state or agent_name is provided
         model_name = "gpt-4.1"
         model_provider = "OPENAI"
+
+    # Route to the interactive Claude Code file bridge instead of a real API client.
+    if str(model_provider) == ModelProvider.CLAUDE_CODE.value:
+        return call_claude_code(prompt, pydantic_model, agent_name=agent_name, state=state, default_factory=default_factory)
 
     # Extract API keys from state if available
     api_keys = None

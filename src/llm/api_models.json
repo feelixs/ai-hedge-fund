@@ -30,6 +30,11 @@
     "provider": "Anthropic"
   },
   {
+    "display_name": "Claude Code (interactive, file bridge)",
+    "model_name": "claude-code",
+    "provider": "Claude Code"
+  },
+  {
     "display_name": "DeepSeek R1",
     "model_name": "deepseek-reasoner",
     "provider": "DeepSeek"
