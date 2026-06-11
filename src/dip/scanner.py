@@ -30,6 +30,8 @@ _ACTION_RANK = {"buy_dip": 0, "wait_for_confirmation": 1, "avoid": 2}
 
 @dataclass
 class JudgedDip:
+    """One dip candidate bundled with its gathered context and the judge's verdict."""
+
     candidate: DipCandidate
     math_packet: dict
     headlines: list[dict]
@@ -42,6 +44,7 @@ def rank_results(results: list[JudgedDip]) -> list[JudgedDip]:
 
 
 def render_report(ranked: list[JudgedDip], spy_move_pct: float, threshold_pct: float, cut_tickers: list[str]) -> str:
+    """Render the ranked results as a markdown report: summary table, cut-ticker callout, per-ticker detail blocks."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     lines = [f"# DIP SCAN — {now}  (threshold -{threshold_pct}%, SPY {spy_move_pct}%)", ""]
 
@@ -55,7 +58,8 @@ def render_report(ranked: list[JudgedDip], spy_move_pct: float, threshold_pct: f
             continue
         v = r.verdict
         earnings_flag = " [EARNINGS]" if v.is_earnings_related else ""
-        lines.append(f"| {c.ticker} | {c.move_pct}% | {c.excess_move_pct}% | {vol} | {v.classification} | {v.suggested_action} | {v.confidence} | {v.event_summary}{earnings_flag} |")
+        event = v.event_summary.replace("|", "/").replace("\n", " ")
+        lines.append(f"| {c.ticker} | {c.move_pct}% | {c.excess_move_pct}% | {vol} | {v.classification} | {v.suggested_action} | {v.confidence} | {event}{earnings_flag} |")
 
     if cut_tickers:
         lines.append("")
@@ -65,7 +69,8 @@ def render_report(ranked: list[JudgedDip], spy_move_pct: float, threshold_pct: f
         if r.verdict is None:
             continue
         c, v = r.candidate, r.verdict
-        lines += ["", f"## {c.ticker} — {v.classification} / {v.suggested_action} ({v.confidence}%)", "", f"**Event:** {v.event_summary}", "", f"**Reasoning:** {v.reasoning}", "", f"**Key risk:** {v.key_risk}", "", f"**Dip stats:** move {c.move_pct}%, excess {c.excess_move_pct}%, volume {c.rel_volume}x avg, {c.drawdown_pct}% off 20-day high, last ${c.last_price}"]
+        vol = f"{c.rel_volume}x avg" if c.rel_volume is not None else "n/a"
+        lines += ["", f"## {c.ticker} — {v.classification} / {v.suggested_action} ({v.confidence}%)", "", f"**Event:** {v.event_summary}", "", f"**Reasoning:** {v.reasoning}", "", f"**Key risk:** {v.key_risk}", "", f"**Dip stats:** move {c.move_pct}%, excess {c.excess_move_pct}%, volume {vol}, {c.drawdown_pct}% off 20-day high, last ${c.last_price}"]
 
     lines.append("")
     return "\n".join(lines)

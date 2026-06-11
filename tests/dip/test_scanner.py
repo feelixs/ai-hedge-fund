@@ -40,3 +40,12 @@ def test_render_report_contains_rows_flags_and_cut_list():
     assert "JUDGE_ERROR" in report
     assert "XYZ" in report  # cut tickers named, never silent
     assert "Structural China weakness" in report  # key risk in detail block
+
+
+def test_render_report_handles_missing_volume_and_pipes_in_event():
+    c = DipCandidate(ticker="THIN", last_price=10.0, move_pct=-6.0, spy_move_pct=0.0, excess_move_pct=-6.0, rel_volume=None, drawdown_pct=-8.0)
+    v = DipVerdict(classification="transitory", confidence=55, event_summary="CEO out | CFO stays\nboard shakeup", reasoning="r", suggested_action="wait_for_confirmation", key_risk="k", is_earnings_related=False)
+    report = render_report([JudgedDip(candidate=c, math_packet={}, headlines=[], verdict=v)], spy_move_pct=0.0, threshold_pct=5.0, cut_tickers=[])
+    assert "Nonex" not in report
+    table_row = next(line for line in report.splitlines() if line.startswith("| THIN"))
+    assert "CEO out / CFO stays board shakeup" in table_row  # pipes/newlines sanitized in table
