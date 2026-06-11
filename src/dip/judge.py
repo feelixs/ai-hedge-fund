@@ -1,11 +1,17 @@
 """DipVerdict schema and prompt-packet construction for the Claude Code dip judge."""
 
 import json
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
 from src.dip.detection import DipCandidate
+
+
+class Headline(TypedDict):
+    date: str
+    source: str
+    title: str
 
 
 class DipVerdict(BaseModel):
@@ -26,14 +32,14 @@ RUBRIC = """## Judging rubric: transitory vs thesis-breaking
 
 **Unclear is a first-class answer.** If you cannot find what caused the drop, say `unclear` and suggest `wait_for_confirmation` — never force a guess.
 
-Remember: classification and action are independent. A transitory event that is earnings-related, or a fresh dump still falling on huge volume, can rightly get `wait_for_confirmation`. Bad-earnings dips drift further down for weeks (post-earnings-announcement drift) — hold those to a higher bar and set `is_earnings_related` accordingly."""
+Remember: classification and action are independent. A transitory event that is earnings-related, or a fresh dump still falling on huge volume, can rightly get `wait_for_confirmation`. Bad-earnings dips drift further down for weeks (post-earnings-announcement drift) — hold those to a higher bar and set `is_earnings_related` accordingly. Set `is_earnings_related=True` for any earnings- or guidance-driven drop — including guidance trims you classify as transitory — not just quarterly beats/misses."""
 
 
 def _fmt_rel_volume(rel_volume: float | None) -> str:
     return f"{rel_volume}x 20-day average" if rel_volume is not None else "unavailable"
 
 
-def build_dip_prompt(candidate: DipCandidate, math_packet: dict, headlines: list[dict]) -> str:
+def build_dip_prompt(candidate: DipCandidate, math_packet: dict, headlines: list[Headline]) -> str:
     """Render the self-contained judge prompt for one dip candidate.
 
     The rubric and the research instruction live HERE (versioned with the code),

@@ -108,3 +108,9 @@ def test_nan_today_is_skipped_and_nan_volume_yields_no_rel_volume():
     candidates, _ = detect_dips({"NKE": nan_vol}, flat_spy())
     assert len(candidates) == 1
     assert candidates[0].rel_volume is None
+
+
+def test_empty_price_frame_is_skipped():
+    empty = pd.DataFrame({"close": [], "volume": []})
+    candidates, _ = detect_dips({"GONE": empty, "NKE": make_df([100.0] * 24 + [93.0])}, flat_spy())
+    assert [c.ticker for c in candidates] == ["NKE"]
