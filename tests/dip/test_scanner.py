@@ -89,3 +89,22 @@ def test_save_results_writes_report_and_per_ticker_json(tmp_path):
     assert data["candidate"]["ticker"] == "NKE"
     assert data["verdict"]["suggested_action"] == "buy_dip"
     assert data["math_packet"] == {"fundamentals": {}}
+
+
+def test_fetch_price_dfs_warns_and_skips_bad_tickers(monkeypatch):
+    import src.dip.scanner as scanner
+    from src.data.models import Price
+
+    good = [Price(open=1.0, close=1.0, high=1.0, low=1.0, volume=1, time="2026-06-10"), Price(open=1.0, close=0.9, high=1.0, low=0.9, volume=1, time="2026-06-11")]
+
+    def fake_get_prices(ticker, start_date, end_date, api_key, interval="day", interval_multiplier=1):
+        if ticker == "BOOM":
+            raise RuntimeError("rate limited")
+        if ticker == "EMPTY":
+            return []
+        return good
+
+    monkeypatch.setattr(scanner, "get_prices", fake_get_prices)
+    dfs = scanner.fetch_price_dfs(["BOOM", "EMPTY", "OK"], "2026-06-01", "2026-06-11", None)
+    assert list(dfs) == ["OK"]  # failing and empty tickers skipped, scan continues
+    assert len(dfs["OK"]) == 2

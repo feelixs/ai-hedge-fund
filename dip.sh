@@ -1,3 +1,4 @@
+#!/bin/bash
 # Dip scanner — flags sharp stock-specific drops in watchlist.txt, then blocks
 # while Claude Code judges each one (run /judge-dips in a session in this repo).
 #

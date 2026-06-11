@@ -156,13 +156,14 @@ def main():
     price_dfs = fetch_price_dfs(tickers, start_date, end_date, api_key)
 
     threshold = abs(args.threshold)
-    candidates, cut = detect_dips(price_dfs, spy_dfs[MARKET_BENCHMARK], threshold_pct=threshold, excess_pct=abs(args.excess), max_candidates=args.max_candidates)
+    excess = abs(args.excess)
+    candidates, cut = detect_dips(price_dfs, spy_dfs[MARKET_BENCHMARK], threshold_pct=threshold, excess_pct=excess, max_candidates=args.max_candidates)
 
     if not candidates:
-        print(f"\nNo dips today: nothing down >= {threshold}% with >= {abs(args.excess)}% excess vs {MARKET_BENCHMARK} across {len(price_dfs)} tickers.")
+        print(f"\nNo dips today: nothing down >= {threshold}% with >= {excess}% excess vs {MARKET_BENCHMARK} across {len(price_dfs)} tickers.")
         return
 
-    spy_move = candidates[0].spy_move_pct
+    spy_move = candidates[0].spy_move_pct  # same SPY benchmark value on every candidate (set by detect_dips)
     print(f"\n{len(candidates)} dip candidate(s): " + ", ".join(f"{c.ticker} {c.move_pct}%" for c in candidates))
     if cut:
         print(f"Cut by --max-candidates (not judged): {', '.join(cut)}")
