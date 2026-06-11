@@ -1,0 +1,67 @@
+# Curated quality watchlist for the dip scanner (./dip.sh).
+# One ticker per line. '#' starts a comment. Only list companies you'd be
+# happy to own at the right price — this list IS the quality filter.
+
+# Tech
+AAPL
+MSFT
+GOOGL
+AMZN
+TSLA
+NVDA
+META
+AMD
+INTC
+PLTR
+CRM
+ORCL
+ADBE
+CSCO
+IBM
+NFLX
+
+# Financials
+JPM
+BAC
+GS
+V
+MA
+BRK-B
+
+# Healthcare
+JNJ
+UNH
+PFE
+ABBV
+LLY
+MRK
+
+# Energy
+XOM
+CVX
+COP
+
+# Consumer
+WMT
+COST
+HD
+MCD
+NKE
+SBUX
+KO
+PEP
+
+# Industrials & Defense
+LMT
+CAT
+BA
+GE
+HON
+UPS
+RTX
+
+# Communications
+DIS
+T
+VZ
+CMCSA

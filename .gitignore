@@ -52,6 +52,7 @@ Thumbs.db
 
 # Txt files
 *.txt
+!watchlist.txt
 
 # PDF files
 *.pdf
