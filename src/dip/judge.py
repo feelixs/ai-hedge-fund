@@ -6,6 +6,8 @@ from typing import Literal, TypedDict
 from pydantic import BaseModel, Field
 
 from src.dip.detection import DipCandidate
+from src.scanner import analyze_fundamentals, analyze_growth_signal, analyze_valuation_signal
+from src.tools.api import get_company_news
 
 
 class Headline(TypedDict):
@@ -78,3 +80,26 @@ Note: any section marked "error" was unavailable from the data source — weigh 
 {headlines_block}
 
 {RUBRIC}"""
+
+
+def build_math_packet(ticker: str, end_date: str, api_key: str | None) -> dict:
+    """Pre-drop business context. The scanner functions catch their own errors and return {"error": ...} dicts; this adds a belt-and-suspenders catch so one bad section never drops a candidate."""
+    packet = {}
+    for name, fn in (("fundamentals", analyze_fundamentals), ("valuation", analyze_valuation_signal), ("growth", analyze_growth_signal)):
+        try:
+            packet[name] = fn(ticker, end_date, api_key)
+        except Exception as e:  # noqa: BLE001 - label the gap rather than dropping the candidate
+            packet[name] = {"error": f"unavailable: {e}"}
+    return packet
+
+
+def fetch_headlines(ticker: str, end_date: str, start_date: str, api_key: str | None, limit: int = 15) -> list[Headline]:
+    """Recent headline titles, newest first, capped. Dates are ISO strings so the window filter is a plain string compare (yfinance ignores server-side date filters, so filter client-side too)."""
+    try:
+        news = get_company_news(ticker, end_date, start_date=start_date, limit=1000, api_key=api_key)
+    except Exception as e:  # noqa: BLE001 - no headlines is a valid state the prompt handles explicitly
+        print(f"[dip] headline fetch failed for {ticker}: {e}")
+        return []
+    items: list[Headline] = [{"date": n.date[:10], "title": n.title, "source": n.source} for n in news if n.title and n.date and start_date <= n.date[:10] <= end_date]
+    items.sort(key=lambda h: h["date"], reverse=True)
+    return items[:limit]

@@ -41,3 +41,33 @@ def test_prompt_contains_stats_packet_headlines_and_rubric():
 def test_prompt_handles_no_headlines():
     prompt = build_dip_prompt(CANDIDATE, MATH_PACKET, [])
     assert "no recent headlines found" in prompt.lower()
+
+
+def test_build_math_packet_collects_all_three_and_labels_failures(monkeypatch):
+    import src.dip.judge as judge
+
+    monkeypatch.setattr(judge, "analyze_fundamentals", lambda t, d, k: {"signal": "bullish"})
+    monkeypatch.setattr(judge, "analyze_valuation_signal", lambda t, d, k: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(judge, "analyze_growth_signal", lambda t, d, k: {"signal": "neutral"})
+
+    packet = judge.build_math_packet("NKE", "2026-06-11", None)
+    assert packet["fundamentals"] == {"signal": "bullish"}
+    assert "boom" in packet["valuation"]["error"]
+    assert packet["growth"] == {"signal": "neutral"}
+
+
+def test_fetch_headlines_maps_filters_and_caps(monkeypatch):
+    import src.dip.judge as judge
+
+    class News:
+        def __init__(self, date, title, source):
+            self.date, self.title, self.source = date, title, source
+
+    fake = [News(f"2026-06-{d:02d}", f"headline {d}", "Reuters") for d in range(1, 12)]
+    monkeypatch.setattr(judge, "get_company_news", lambda ticker, end_date, start_date=None, limit=1000, api_key=None: fake)
+
+    out = judge.fetch_headlines("NKE", end_date="2026-06-11", start_date="2026-06-04", api_key=None, limit=5)
+    assert len(out) == 5
+    assert all(h["date"] >= "2026-06-04" for h in out)  # client-side date filter applied
+    assert out[0]["date"] >= out[-1]["date"]  # newest first
+    assert set(out[0]) == {"date", "title", "source"}
