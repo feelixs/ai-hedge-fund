@@ -49,3 +49,43 @@ def test_render_report_handles_missing_volume_and_pipes_in_event():
     assert "Nonex" not in report
     table_row = next(line for line in report.splitlines() if line.startswith("| THIN"))
     assert "CEO out / CFO stays board shakeup" in table_row  # pipes/newlines sanitized in table
+
+
+def test_judge_all_calls_bridge_per_candidate_and_tolerates_failures(monkeypatch):
+    import src.dip.scanner as scanner
+
+    monkeypatch.setattr(scanner, "build_math_packet", lambda t, d, k: {"fundamentals": {"signal": "bullish"}})
+    monkeypatch.setattr(scanner, "fetch_headlines", lambda t, end_date, start_date, api_key: [{"date": "2026-06-11", "title": "t", "source": "s"}])
+
+    calls = []
+
+    def fake_bridge(prompt, model, agent_name=None, default_factory=None):
+        calls.append(agent_name)
+        if "SBUX" in agent_name:
+            return default_factory()  # simulates invalid-JSON fallback
+        return verdict("buy_dip", 70)
+
+    monkeypatch.setattr(scanner, "call_claude_code", fake_bridge)
+
+    results = scanner.judge_all([cand("NKE"), cand("SBUX")], end_date="2026-06-11", api_key=None)
+    assert sorted(calls) == ["dip_judge_NKE", "dip_judge_SBUX"]
+    by_ticker = {r.candidate.ticker: r for r in results}
+    assert by_ticker["NKE"].verdict.suggested_action == "buy_dip"
+    assert by_ticker["SBUX"].verdict is None  # JUDGE_ERROR path, not a fake default verdict
+    assert by_ticker["NKE"].math_packet == {"fundamentals": {"signal": "bullish"}}
+
+
+def test_save_results_writes_report_and_per_ticker_json(tmp_path):
+    import src.dip.scanner as scanner
+
+    results = rank_results([JudgedDip(candidate=cand("NKE"), math_packet={"fundamentals": {}}, headlines=[{"date": "2026-06-11", "title": "t", "source": "s"}], verdict=verdict("buy_dip", 78))])
+    report = "# DIP SCAN — test"
+    out_dir = scanner.save_results(results, report, scans_root=str(tmp_path))
+
+    assert out_dir.startswith(str(tmp_path))
+    files = sorted(os.listdir(out_dir))
+    assert files == ["NKE.json", "REPORT.md"]
+    data = json.loads(open(os.path.join(out_dir, "NKE.json")).read())
+    assert data["candidate"]["ticker"] == "NKE"
+    assert data["verdict"]["suggested_action"] == "buy_dip"
+    assert data["math_packet"] == {"fundamentals": {}}

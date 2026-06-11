@@ -74,3 +74,38 @@ def render_report(ranked: list[JudgedDip], spy_move_pct: float, threshold_pct: f
 
     lines.append("")
     return "\n".join(lines)
+
+
+def judge_one(candidate: DipCandidate, end_date: str, api_key: str | None) -> JudgedDip:
+    """Gather packets and route one candidate through the Claude Code bridge (blocks until /judge-dips answers)."""
+    start_date = (datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=HEADLINE_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    math_packet = build_math_packet(candidate.ticker, end_date, api_key)
+    headlines = fetch_headlines(candidate.ticker, end_date=end_date, start_date=start_date, api_key=api_key)
+    prompt = build_dip_prompt(candidate, math_packet, headlines)
+    # default_factory returns None so a bad answer surfaces as JUDGE_ERROR in the
+    # report instead of masquerading as a real verdict.
+    verdict = call_claude_code(prompt, DipVerdict, agent_name=f"dip_judge_{candidate.ticker}", default_factory=lambda: None)
+    return JudgedDip(candidate=candidate, math_packet=math_packet, headlines=headlines, verdict=verdict)
+
+
+def judge_all(candidates: list[DipCandidate], end_date: str, api_key: str | None) -> list[JudgedDip]:
+    """Judge all candidates concurrently so every prompt file exists before /judge-dips runs."""
+    with ThreadPoolExecutor(max_workers=max(len(candidates), 1)) as pool:
+        return list(pool.map(lambda c: judge_one(c, end_date, api_key), candidates))
+
+
+def save_results(ranked: list[JudgedDip], report: str, scans_root: str | None = None) -> str:
+    """Persist to scans/dips_<timestamp>/ (REPORT.md + one JSON per ticker), mirroring scanner.py's scans/ convention."""
+    if scans_root is None:
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        scans_root = os.path.join(project_root, "scans")
+    out_dir = os.path.join(scans_root, f"dips_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
+    os.makedirs(out_dir, exist_ok=True)
+
+    with open(os.path.join(out_dir, "REPORT.md"), "w") as f:
+        f.write(report)
+    for r in ranked:
+        payload = {"candidate": asdict(r.candidate), "math_packet": r.math_packet, "headlines": r.headlines, "verdict": r.verdict.model_dump() if r.verdict else None}
+        with open(os.path.join(out_dir, f"{r.candidate.ticker}.json"), "w") as f:
+            json.dump(payload, f, indent=2, default=str)
+    return out_dir
