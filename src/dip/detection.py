@@ -32,7 +32,7 @@ class DipCandidate:
 
 
 def _day_move_pct(df: pd.DataFrame) -> float | None:
-    if pd.isna(df["close"].iloc[-1]):
+    if df["close"].empty or pd.isna(df["close"].iloc[-1]):
         return None
     closes = df["close"].dropna()
     if len(closes) < 2 or closes.iloc[-2] == 0:
