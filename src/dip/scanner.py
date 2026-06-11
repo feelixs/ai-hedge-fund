@@ -110,3 +110,73 @@ def save_results(ranked: list[JudgedDip], report: str, scans_root: str | None = 
         with open(os.path.join(out_dir, f"{r.candidate.ticker}.json"), "w") as f:
             json.dump(payload, f, indent=2, default=str)
     return out_dir
+
+
+def fetch_price_dfs(tickers: list[str], start_date: str, end_date: str, api_key: str | None) -> dict[str, pd.DataFrame]:
+    """Fetch daily candles per ticker; warn-and-skip tickers with no data (a dead ticker must not kill the scan)."""
+    dfs: dict[str, pd.DataFrame] = {}
+    for ticker in tickers:
+        try:
+            prices = get_prices(ticker, start_date, end_date, api_key, interval="day", interval_multiplier=1)
+        except Exception as e:  # noqa: BLE001 - one bad ticker must not kill the scan; named in output
+            print(f"[dip] price fetch failed for {ticker}: {e}")
+            continue
+        if not prices:
+            print(f"[dip] no price data for {ticker}, skipping")
+            continue
+        dfs[ticker] = prices_to_df(prices)
+    return dfs
+
+
+def main():
+    """CLI entry point: detect dips, write judge prompts, block for /judge-dips, report."""
+    parser = argparse.ArgumentParser(description="Dip scanner — flags sharp stock-specific drops and has Claude Code judge the news (run /judge-dips when prompted)")
+    parser.add_argument("--tickers", type=str, default=None, help="Comma-separated tickers (overrides the watchlist for ad-hoc runs)")
+    parser.add_argument("--watchlist", type=str, default="watchlist.txt", help="Path to watchlist file (default: watchlist.txt)")
+    parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD_PCT, help="Min drop percent to flag, as a magnitude: 5 means -5%% (default: 5)")
+    parser.add_argument("--excess", type=float, default=DEFAULT_EXCESS_PCT, help="Min excess drop vs SPY, as a magnitude (default: 4)")
+    parser.add_argument("--max-candidates", type=int, default=DEFAULT_MAX_CANDIDATES, help="Max dips judged per run (default: 10)")
+    args = parser.parse_args()
+
+    load_dotenv()
+    api_key = os.getenv("FINANCIAL_DATASETS_API_KEY")  # may be None: yfinance route ignores it
+
+    tickers = [t.strip().upper() for t in args.tickers.split(",")] if args.tickers else load_watchlist(args.watchlist)
+    if not tickers:
+        print(f"Watchlist {args.watchlist} is empty — add tickers or pass --tickers")
+        return
+
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=PRICE_LOOKBACK_CALENDAR_DAYS)).strftime("%Y-%m-%d")
+
+    print(f"Fetching prices for {len(tickers)} tickers + {MARKET_BENCHMARK}...")
+    spy_dfs = fetch_price_dfs([MARKET_BENCHMARK], start_date, end_date, api_key)
+    if MARKET_BENCHMARK not in spy_dfs:
+        raise SystemExit(f"Could not fetch {MARKET_BENCHMARK} prices — cannot compute excess moves, aborting")
+    price_dfs = fetch_price_dfs(tickers, start_date, end_date, api_key)
+
+    threshold = abs(args.threshold)
+    candidates, cut = detect_dips(price_dfs, spy_dfs[MARKET_BENCHMARK], threshold_pct=threshold, excess_pct=abs(args.excess), max_candidates=args.max_candidates)
+
+    if not candidates:
+        print(f"\nNo dips today: nothing down >= {threshold}% with >= {abs(args.excess)}% excess vs {MARKET_BENCHMARK} across {len(price_dfs)} tickers.")
+        return
+
+    spy_move = candidates[0].spy_move_pct
+    print(f"\n{len(candidates)} dip candidate(s): " + ", ".join(f"{c.ticker} {c.move_pct}%" for c in candidates))
+    if cut:
+        print(f"Cut by --max-candidates (not judged): {', '.join(cut)}")
+
+    banner = "=" * 70
+    print(f"\n{banner}\nWriting one judge prompt per candidate to claude_agent/prompts/.\nIn a Claude Code session in this repo, run:  /judge-dips\n(NOT /answer-hedge-agent — the dip judge needs web research.)\nThis process blocks until every verdict is in.\n{banner}\n")
+
+    results = judge_all(candidates, end_date, api_key)
+    ranked = rank_results(results)
+    report = render_report(ranked, spy_move_pct=spy_move, threshold_pct=threshold, cut_tickers=cut)
+    print("\n" + report)
+    out_dir = save_results(ranked, report)
+    print(f"Results saved to: {out_dir}/")
+
+
+if __name__ == "__main__":
+    main()
