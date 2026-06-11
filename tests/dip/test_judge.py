@@ -64,6 +64,7 @@ def test_fetch_headlines_maps_filters_and_caps(monkeypatch):
             self.date, self.title, self.source = date, title, source
 
     fake = [News(f"2026-06-{d:02d}", f"headline {d}", "Reuters") for d in range(1, 12)]
+    fake.append(News("2026-06-12", "future item beyond end_date", "Reuters"))
     monkeypatch.setattr(judge, "get_company_news", lambda ticker, end_date, start_date=None, limit=1000, api_key=None: fake)
 
     out = judge.fetch_headlines("NKE", end_date="2026-06-11", start_date="2026-06-04", api_key=None, limit=5)
@@ -71,3 +72,4 @@ def test_fetch_headlines_maps_filters_and_caps(monkeypatch):
     assert all(h["date"] >= "2026-06-04" for h in out)  # client-side date filter applied
     assert out[0]["date"] >= out[-1]["date"]  # newest first
     assert set(out[0]) == {"date", "title", "source"}
+    assert all(h["date"] <= "2026-06-11" for h in out)  # upper bound enforced client-side
