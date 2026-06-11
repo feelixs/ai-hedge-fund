@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.dip.detection import load_watchlist
+from src.dip.detection import DipCandidate, detect_dips, load_watchlist
 
 
 def test_load_watchlist_parses_tickers_comments_and_blanks(tmp_path):
@@ -16,9 +16,6 @@ def test_load_watchlist_empty_file_returns_empty_list(tmp_path):
     f = tmp_path / "watchlist.txt"
     f.write_text("# nothing but comments\n\n")
     assert load_watchlist(str(f)) == []
-
-
-from src.dip.detection import DipCandidate, detect_dips
 
 
 def make_df(closes: list[float], volumes: list[float] | None = None) -> pd.DataFrame:
@@ -96,3 +93,18 @@ def test_ticker_with_insufficient_data_is_skipped():
 def test_missing_spy_data_raises():
     with pytest.raises(ValueError):
         detect_dips({"NKE": make_df([100.0, 93.0])}, make_df([500.0]))
+
+
+def test_nan_today_is_skipped_and_nan_volume_yields_no_rel_volume():
+    # NaN close today -> ticker skipped entirely (no stale yesterday-vs-day-before move)
+    nan_close = make_df([100.0] * 24 + [93.0])
+    nan_close.iloc[-1, nan_close.columns.get_loc("close")] = float("nan")
+    candidates, _ = detect_dips({"BAD": nan_close}, flat_spy())
+    assert candidates == []
+
+    # NaN volume today -> still flagged, but rel_volume is None (not yesterday's ratio)
+    nan_vol = make_df([100.0] * 24 + [93.0])
+    nan_vol.iloc[-1, nan_vol.columns.get_loc("volume")] = float("nan")
+    candidates, _ = detect_dips({"NKE": nan_vol}, flat_spy())
+    assert len(candidates) == 1
+    assert candidates[0].rel_volume is None

@@ -28,10 +28,12 @@ class DipCandidate:
     spy_move_pct: float
     excess_move_pct: float  # move_pct - spy_move_pct
     rel_volume: float | None  # today's volume / 20-day average volume (None if not enough history)
-    drawdown_pct: float  # last close vs 20-day high
+    drawdown_pct: float  # last close vs trailing 21-bar high (today + 20 prior sessions)
 
 
 def _day_move_pct(df: pd.DataFrame) -> float | None:
+    if pd.isna(df["close"].iloc[-1]):
+        return None
     closes = df["close"].dropna()
     if len(closes) < 2 or closes.iloc[-2] == 0:
         return None
@@ -68,7 +70,7 @@ def detect_dips(
         closes = df["close"].dropna()
         volumes = df["volume"].dropna()
         rel_volume = None
-        if len(volumes) >= 6:
+        if not pd.isna(df["volume"].iloc[-1]) and len(volumes) >= 6:
             prior_avg = volumes.iloc[:-1].tail(20).mean()
             if prior_avg > 0:
                 rel_volume = round(float(volumes.iloc[-1] / prior_avg), 2)
