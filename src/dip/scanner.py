@@ -24,6 +24,7 @@ from src.tools.api import get_prices, prices_to_df
 PRICE_LOOKBACK_CALENDAR_DAYS = 45  # enough for 20 trading-day volume/high stats
 HEADLINE_LOOKBACK_DAYS = 7
 MARKET_BENCHMARK = "SPY"
+MAX_JUDGE_WORKERS = 10  # judge_all self-defends even if a caller bypasses detect_dips' cap
 
 _ACTION_RANK = {"buy_dip": 0, "wait_for_confirmation": 1, "avoid": 2}
 
@@ -90,7 +91,7 @@ def judge_one(candidate: DipCandidate, end_date: str, api_key: str | None) -> Ju
 
 def judge_all(candidates: list[DipCandidate], end_date: str, api_key: str | None) -> list[JudgedDip]:
     """Judge all candidates concurrently so every prompt file exists before /judge-dips runs."""
-    with ThreadPoolExecutor(max_workers=max(len(candidates), 1)) as pool:
+    with ThreadPoolExecutor(max_workers=min(max(len(candidates), 1), MAX_JUDGE_WORKERS)) as pool:
         return list(pool.map(lambda c: judge_one(c, end_date, api_key), candidates))
 
 

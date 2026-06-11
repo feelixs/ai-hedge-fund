@@ -59,7 +59,7 @@ def test_judge_all_calls_bridge_per_candidate_and_tolerates_failures(monkeypatch
 
     calls = []
 
-    def fake_bridge(prompt, model, agent_name=None, default_factory=None):
+    def fake_bridge(prompt, pydantic_model, agent_name=None, state=None, default_factory=None):
         calls.append(agent_name)
         if "SBUX" in agent_name:
             return default_factory()  # simulates invalid-JSON fallback
