@@ -83,7 +83,9 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
    ```
 
    A non-zero exit means the record was rejected — fix the JSON and retry;
-   never skip a verdict silently.
+   never skip a verdict silently. Keep the catalyst line free of apostrophes
+   and quotes (rephrase, e.g. "company's" → "company") so the single-quoted
+   shell argument survives intact.
 
 5. **Chain into TA.** Invoke the `dispatch-ta` skill with the judged tickers
    as its arguments (comma-separated, e.g. `ADBE,RKLB`). It dumps prices,
@@ -98,9 +100,10 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
 
    Use the date portion of step 2's `judged_at` timestamp as `--date` — it
    must match both the records' `judged_at` prefix and the `analysis/<date>/`
-   directory dispatch-ta wrote into. If the run crossed midnight after the
-   price dump, the dump's date wins — check which `analysis/<date>/` dir the
-   consensus files actually landed in.
+   directory dispatch-ta wrote into. If the run crossed midnight between
+   those two steps, no single date matches both sides and nothing will link —
+   report that to the user; the records will be stamped `skipped_no_consensus`
+   at maturity, which is the designed outcome.
 
    Report which tickers linked; a warning about a missing consensus file
    means dispatch-ta failed for that ticker — its record will be stamped
