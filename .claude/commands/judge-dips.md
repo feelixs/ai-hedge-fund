@@ -39,7 +39,8 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
    chance. Read every prompt file and note, per ticker, from its "Today's
    dip" section: `move_pct`, `last_price`, `spy_move_pct`, `excess_move_pct`,
    `drawdown_pct` (the "Position vs 20-day high" line), and `rel_volume`
-   ("Relative volume"; use `null` if absent). Also note the current timestamp
+   (the "Volume" line, e.g. "2.84x 20-day average" → 2.84; record `null` when
+   it reads "unavailable"). Also note the current timestamp
    as `judged_at` (ISO, e.g. `2026-06-12T12:01:33`). Then pull each ticker's
    past record for judge context:
 
@@ -92,8 +93,14 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
 6. **Link consensus targets into the ledger:**
 
    ```bash
-   poetry run python -m src.dip.ledger link-ta --date <today YYYY-MM-DD>
+   poetry run python -m src.dip.ledger link-ta --date <YYYY-MM-DD>
    ```
+
+   Use the date portion of step 2's `judged_at` timestamp as `--date` — it
+   must match both the records' `judged_at` prefix and the `analysis/<date>/`
+   directory dispatch-ta wrote into. If the run crossed midnight after the
+   price dump, the dump's date wins — check which `analysis/<date>/` dir the
+   consensus files actually landed in.
 
    Report which tickers linked; a warning about a missing consensus file
    means dispatch-ta failed for that ticker — its record will be stamped
@@ -115,7 +122,7 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
 - The rubric lives inside each prompt file — follow it, including the
   earnings-drift caution and the classification/action independence rule.
 - Never hand-edit `analysis/dip_ledger.jsonl` — all writes go through
-  `python -m src.dip.ledger` (atomic rewrites; a corrupt line is a hard
-  error for every future run).
+  `python -m src.dip.ledger` (record appends; link-ta/score rewrite
+  atomically; a corrupt line is a hard error for every future run).
 - Ledger steps (0, 4, 6) must not block the answer files: if the ledger CLI
   errors repeatedly, report it and finish the judging flow anyway.
