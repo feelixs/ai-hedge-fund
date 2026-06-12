@@ -126,7 +126,7 @@ def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str |
                 "consensus_high": consensus["consensus_high"],
                 "consensus_path": os.path.relpath(consensus_path, PROJECT_ROOT),
             }
-        except (json.JSONDecodeError, KeyError) as e:
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
             raise ValueError(f"{consensus_path}: invalid consensus file: {e}") from e
         linked.append(record["ticker"])
     if linked:
@@ -208,6 +208,8 @@ def score(path: str = DEFAULT_LEDGER_PATH, today: date | None = None, fetch=None
 
 def history(ticker: str, limit: int = 10, path: str = DEFAULT_LEDGER_PATH) -> list[dict]:
     """The ticker's most recent ``limit`` records, oldest first."""
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
     ticker = ticker.strip().upper()
     return [r for r in load_records(path) if r["ticker"] == ticker][-limit:]
 
@@ -243,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "history":
             for record in history(args.ticker, args.limit, args.ledger):
                 print(json.dumps(record))
-    except (ValueError, json.JSONDecodeError) as e:
+    except ValueError as e:
         print(f"[ledger] error: {e}", file=sys.stderr)
         return 1
     return 0

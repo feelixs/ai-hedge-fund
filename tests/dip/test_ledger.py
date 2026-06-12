@@ -119,11 +119,11 @@ def fetch_close(close, day="2026-06-19"):
 @pytest.mark.parametrize(
     "action,close,expected",
     [
-        ("avoid", 160.0, "dip_opportunity_missed"),       # sat out, price reached target
-        ("wait_for_confirmation", 149.0, "good_call"),    # sat out, never got there
-        ("buy_dip", 160.0, "good_call"),                  # bought, target hit
-        ("buy_dip", 147.0, "bad_call"),                   # bought, fell >3% below dip price
-        ("buy_dip", 151.0, "inconclusive"),               # bought, in between
+        ("avoid", 160.0, "dip_opportunity_missed"),  # sat out, price reached target
+        ("wait_for_confirmation", 149.0, "good_call"),  # sat out, never got there
+        ("buy_dip", 160.0, "good_call"),  # bought, target hit
+        ("buy_dip", 147.0, "bad_call"),  # bought, fell >3% below dip price
+        ("buy_dip", 151.0, "inconclusive"),  # bought, in between
     ],
 )
 def test_score_rule_branches(tmp_path, action, close, expected):
@@ -139,8 +139,10 @@ def test_score_rule_branches(tmp_path, action, close, expected):
 def test_score_stamps_skipped_when_no_usable_consensus(tmp_path, record):
     path = str(tmp_path / "ledger.jsonl")
     append_raw(path, record)
+
     def explode(ticker, start, end):
         raise AssertionError("price fetch must not happen for skipped records")
+
     scored = ledger.score(path, today=date(2026, 6, 22), fetch=explode)
     assert scored[0]["outcome"] == {"label": "skipped_no_consensus", "basis": None, "eow_close": None, "scored_at": scored[0]["outcome"]["scored_at"]}
 
@@ -164,8 +166,10 @@ def test_score_uses_last_close_on_or_before_eow(tmp_path):
 def test_score_fetch_failure_leaves_record_unscored(tmp_path, capsys):
     path = str(tmp_path / "ledger.jsonl")
     append_raw(path, linked_record())
+
     def boom(ticker, start, end):
         raise RuntimeError("api down")
+
     assert ledger.score(path, today=date(2026, 6, 22), fetch=boom) == []
     assert ledger.load_records(path)[0]["outcome"] is None
     assert "leaving unscored" in capsys.readouterr().err
@@ -185,8 +189,10 @@ def test_score_malformed_ta_warns_and_leaves_unscored(tmp_path, capsys, mutate):
     record = linked_record()
     mutate(record["ta"])
     append_raw(path, record)
+
     def explode(ticker, start, end):
         raise AssertionError("price fetch must not happen for malformed ta records")
+
     assert ledger.score(path, today=date(2026, 6, 22), fetch=explode) == []
     assert ledger.load_records(path)[0]["outcome"] is None
     err = capsys.readouterr().err
@@ -248,7 +254,7 @@ def test_cli_score_prints_newly_scored(tmp_path, capsys, monkeypatch):
     append_raw(path, make_record(judged_at="2026-06-01T10:00:00"))  # EOW 2026-06-05 already passed; ta=null -> skipped_no_consensus
     monkeypatch.setattr(ledger, "get_prices", lambda *a, **k: pytest.fail("no fetch for skipped records"))
     assert ledger.main(["--ledger", path, "score"]) == 0
-    lines = [json.loads(l) for l in capsys.readouterr().out.strip().splitlines()]
+    lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
     assert lines[0]["outcome"]["label"] == "skipped_no_consensus"
 
 
@@ -289,8 +295,19 @@ def test_link_ta_invalid_consensus_file_is_hard_error(tmp_path):
     (day_dir / "ADBE_ta_consensus.json").write_text("{not json")
     with pytest.raises(ValueError, match="ADBE_ta_consensus.json"):
         ledger.link_ta("2026-06-12", path, analysis_root=str(analysis_root))
+    (day_dir / "ADBE_ta_consensus.json").write_text("[1, 2]")  # valid JSON, wrong shape: subscripting raises TypeError
+    with pytest.raises(ValueError, match="ADBE_ta_consensus.json"):
+        ledger.link_ta("2026-06-12", path, analysis_root=str(analysis_root))
 
 
 def test_cli_link_ta_rejects_malformed_date(tmp_path, capsys):
     assert ledger.main(["--ledger", str(tmp_path / "l.jsonl"), "link-ta", "--date", "2026-6-1"]) == 1
     assert "date" in capsys.readouterr().err
+
+
+def test_cli_history_rejects_nonpositive_limit(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE"), path)
+    capsys.readouterr()
+    assert ledger.main(["--ledger", path, "history", "--ticker", "ADBE", "--limit", "0"]) == 1
+    assert "limit" in capsys.readouterr().err
