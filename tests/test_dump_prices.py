@@ -62,3 +62,14 @@ def test_dump_prices_skips_failures_and_empties(tmp_path, monkeypatch, capsys):
     assert "BAD" in err and "EMPTY" in err
     assert not (tmp_path / "BAD_prices.json").exists()
     assert not (tmp_path / "EMPTY_prices.json").exists()
+
+
+def test_main_exits_1_when_no_ticker_succeeds(tmp_path, monkeypatch):
+    monkeypatch.setattr(dp, "get_prices", lambda *a, **k: [])
+    assert dp.main(["--tickers", "X,Y", "--out", str(tmp_path)]) == 1
+
+
+def test_main_exits_0_when_any_ticker_succeeds(tmp_path, monkeypatch):
+    monkeypatch.setattr(dp, "get_prices", lambda *a, **k: [make_price("2026-06-11")])
+    assert dp.main(["--tickers", "X", "--out", str(tmp_path)]) == 0
+    assert (tmp_path / "X_prices.json").exists()

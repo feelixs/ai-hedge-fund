@@ -8,6 +8,7 @@ Usage:
     poetry run python -m src.tools.dump_prices --tickers ADBE,NVDA [--days 180] [--out DIR]
 """
 
+import argparse
 import json
 import os
 import sys
@@ -69,3 +70,25 @@ def dump_prices(tickers: list[str], days: int, out_dir: str, today: date | None 
         written.append(path)
         print(f"Wrote {os.path.relpath(path, PROJECT_ROOT)} ({len(prices)} candles)")
     return written
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Dump daily OHLCV history for the /dispatch-ta TA agents.")
+    parser.add_argument("--tickers", required=True, help="Comma-separated tickers, e.g. ADBE,NVDA")
+    parser.add_argument("--days", type=int, default=180, help="Calendar days of history (default 180)")
+    parser.add_argument("--out", default=None, help="Output dir (default analysis/<today>/)")
+    args = parser.parse_args(argv)
+
+    tickers = [t for t in (s.strip() for s in args.tickers.split(",")) if t]
+    if not tickers:
+        parser.error("--tickers is empty")
+    out_dir = args.out or os.path.join(PROJECT_ROOT, "analysis", date.today().isoformat())
+    written = dump_prices(tickers, args.days, out_dir)
+    if not written:
+        print("[dump_prices] no tickers succeeded", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
