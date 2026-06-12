@@ -27,13 +27,30 @@ there are usually several pending prompts at once.
    > that agent. Then write your answer to the exact output path named near the
    > top of the prompt file (`claude_agent/outputs/<id>.json`). The output file
    > MUST contain ONLY valid JSON matching the schema — no markdown fences, no
-   > prose, no extra keys. `signal` must be one of `bullish`/`bearish`/`neutral`
-   > when present; `confidence` must be an integer 0-100 when present. After
-   > writing the file, report back the id and your chosen signal.
+   > prose, no extra keys. Use the exact enum values the schema in the file
+   > declares (persona analysts use `bullish`/`bearish`/`neutral`; the news
+   > sentiment agent uses `positive`/`negative`/`neutral` — always follow the
+   > file). `confidence` must be an integer 0-100 when present. After writing
+   > the file, report back the id and your chosen signal.
 
-3. Once all subagents have finished, report a short summary to the user: which
-   ids you answered and each verdict. Remind them the app picks up the answers
-   automatically (it is polling) — no Enter needed.
+3. **Drain the queue — do not stop after one fan-out.** Some callers issue
+   serial LLM calls: the news sentiment agent makes up to 5 calls per ticker
+   (one per headline, each blocking on the previous answer), and the portfolio
+   manager only sends its prompt after every analyst finishes. After the
+   subagents finish, wait for the next prompt to appear, e.g. run in the
+   background:
+
+   ```bash
+   for i in $(seq 1 45); do f=$(ls claude_agent/prompts/*.md 2>/dev/null | head -1); [ -n "$f" ] && echo "NEW: $f" && exit 0; sleep 2; done; echo TIMEOUT
+   ```
+
+   If a new prompt appears, go back to step 2. Only stop when the wait times
+   out (~90s with no new prompt) — that means the workflow run is complete.
+
+4. Once the queue stays empty, report a short summary to the user: which ids
+   you answered and each verdict, including the portfolio manager's final
+   decision if it ran. Remind them the app picks up the answers automatically
+   (it is polling) — no Enter needed.
 
 ## Notes
 
@@ -45,5 +62,7 @@ there are usually several pending prompts at once.
 - Do not modify or delete the prompt files. Only write the
   `claude_agent/outputs/<id>.json` files (the app deletes both once it has
   consumed the answer).
-- If new prompts appear after you finish (a later workflow stage, e.g. the
-  portfolio manager), just run `/answer-hedge-agent` again.
+- Ending the run while the app is still mid-workflow looks to the user like
+  the app is "stuck" — it is actually blocked waiting for an answer to a
+  prompt that hasn't been written yet. That is why step 3's drain loop exists;
+  do not skip it because the first batch "finished".
