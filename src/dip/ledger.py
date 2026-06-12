@@ -48,6 +48,8 @@ def load_records(path: str) -> list[dict]:
 
 def validate_record(record: dict) -> None:
     """Raise ValueError describing every problem with a record-to-append."""
+    if not isinstance(record, dict):
+        raise ValueError("invalid record: record must be a JSON object")
     problems: list[str] = []
     if not isinstance(record.get("ticker"), str) or not record["ticker"].strip():
         problems.append("ticker must be a non-empty string")
@@ -56,7 +58,8 @@ def validate_record(record: dict) -> None:
     except (TypeError, ValueError):
         problems.append("judged_at must be an ISO datetime string")
     dip = record.get("dip")
-    if not isinstance(dip, dict) or not isinstance(dip.get("last_price"), (int, float)):
+    last_price = dip.get("last_price") if isinstance(dip, dict) else None
+    if not isinstance(last_price, (int, float)) or isinstance(last_price, bool):
         problems.append("dip must be an object with a numeric last_price")
     verdict = record.get("verdict")
     if not isinstance(verdict, dict):
@@ -79,7 +82,9 @@ def append_record(record: dict, path: str = DEFAULT_LEDGER_PATH) -> dict:
     record = {**record, "ticker": record["ticker"].strip().upper()}
     record.setdefault("ta", None)
     record.setdefault("outcome", None)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
     return record
@@ -110,16 +115,19 @@ def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str |
         if not os.path.exists(consensus_path):
             print(f"[ledger] {record['ticker']}: no consensus file at {consensus_path} — record will be skipped_no_consensus once matured", file=sys.stderr)
             continue
-        with open(consensus_path, encoding="utf-8") as f:
-            consensus = json.load(f)
-        record["ta"] = {
-            "eow_date": consensus["eow_date"],
-            "validated": consensus["validated"],
-            "consensus_target": consensus["consensus_target"],
-            "consensus_low": consensus["consensus_low"],
-            "consensus_high": consensus["consensus_high"],
-            "consensus_path": os.path.relpath(consensus_path, PROJECT_ROOT),
-        }
+        try:
+            with open(consensus_path, encoding="utf-8") as f:
+                consensus = json.load(f)
+            record["ta"] = {
+                "eow_date": consensus["eow_date"],
+                "validated": consensus["validated"],
+                "consensus_target": consensus["consensus_target"],
+                "consensus_low": consensus["consensus_low"],
+                "consensus_high": consensus["consensus_high"],
+                "consensus_path": os.path.relpath(consensus_path, PROJECT_ROOT),
+            }
+        except (json.JSONDecodeError, KeyError) as e:
+            raise ValueError(f"{consensus_path}: invalid consensus file: {e}") from e
         linked.append(record["ticker"])
     if linked:
         _rewrite(path, records)
@@ -196,3 +204,50 @@ def score(path: str = DEFAULT_LEDGER_PATH, today: date | None = None, fetch=None
     if scored:
         _rewrite(path, records)
     return scored
+
+
+def history(ticker: str, limit: int = 10, path: str = DEFAULT_LEDGER_PATH) -> list[dict]:
+    """The ticker's most recent ``limit`` records, oldest first."""
+    ticker = ticker.strip().upper()
+    return [r for r in load_records(path) if r["ticker"] == ticker][-limit:]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Dip-verdict ledger: record verdicts, link TA consensus, score outcomes.")
+    parser.add_argument("--ledger", default=DEFAULT_LEDGER_PATH, help="Ledger path (default analysis/dip_ledger.jsonl)")
+    sub = parser.add_subparsers(dest="command", required=True)
+    p_record = sub.add_parser("record", help="Append one verdict record")
+    p_record.add_argument("--json", required=True, help="The record as a JSON object")
+    p_link = sub.add_parser("link-ta", help="Attach a date's dispatch-ta consensus files to its records")
+    p_link.add_argument("--date", required=True, help="Judgment date YYYY-MM-DD")
+    sub.add_parser("score", help="Stamp outcomes on matured records; prints newly scored records as JSON lines")
+    p_hist = sub.add_parser("history", help="Print a ticker's records as JSON lines, oldest first")
+    p_hist.add_argument("--ticker", required=True)
+    p_hist.add_argument("--limit", type=int, default=10)
+    args = parser.parse_args(argv)
+
+    try:
+        if args.command == "record":
+            print(json.dumps(append_record(json.loads(args.json), args.ledger)))
+        elif args.command == "link-ta":
+            try:
+                parsed_date = date.fromisoformat(args.date)
+            except ValueError:
+                raise ValueError(f"--date must be canonical YYYY-MM-DD, got {args.date!r}")
+            if parsed_date.isoformat() != args.date:
+                raise ValueError(f"--date must be canonical YYYY-MM-DD, got {args.date!r}")
+            print(json.dumps({"linked": link_ta(args.date, args.ledger)}))
+        elif args.command == "score":
+            for record in score(args.ledger):
+                print(json.dumps(record))
+        elif args.command == "history":
+            for record in history(args.ticker, args.limit, args.ledger):
+                print(json.dumps(record))
+    except (ValueError, json.JSONDecodeError) as e:
+        print(f"[ledger] error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

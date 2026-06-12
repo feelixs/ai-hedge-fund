@@ -216,3 +216,81 @@ def test_score_boundary_equals_target_and_bad_call_threshold(tmp_path):
     append_raw(path, linked_record(action="avoid", target=158.0))
     scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch_close(158.0))
     assert scored[0]["outcome"]["label"] == "dip_opportunity_missed"  # close exactly at target counts as reached
+
+
+# --- Part A: history + CLI ---
+
+
+def test_history_filters_and_limits(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    for hour in ("09", "10", "11"):
+        ledger.append_record(make_record(ticker="ADBE", judged_at=f"2026-06-12T{hour}:00:00"), path)
+    ledger.append_record(make_record(ticker="NVDA"), path)
+    out = ledger.history("adbe", limit=2, path=path)
+    assert [r["judged_at"][11:13] for r in out] == ["10", "11"]  # newest 2, oldest first
+
+
+def test_cli_record_and_history_roundtrip(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    assert ledger.main(["--ledger", path, "record", "--json", json.dumps(make_record())]) == 0
+    capsys.readouterr()
+    assert ledger.main(["--ledger", path, "history", "--ticker", "ADBE"]) == 0
+    assert json.loads(capsys.readouterr().out.strip())["ticker"] == "ADBE"
+
+
+def test_cli_record_invalid_json_exits_nonzero(tmp_path, capsys):
+    assert ledger.main(["--ledger", str(tmp_path / "l.jsonl"), "record", "--json", "{not json"]) == 1
+    assert "error" in capsys.readouterr().err
+
+
+def test_cli_score_prints_newly_scored(tmp_path, capsys, monkeypatch):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, make_record(judged_at="2026-06-01T10:00:00"))  # EOW 2026-06-05 already passed; ta=null -> skipped_no_consensus
+    monkeypatch.setattr(ledger, "get_prices", lambda *a, **k: pytest.fail("no fetch for skipped records"))
+    assert ledger.main(["--ledger", path, "score"]) == 0
+    lines = [json.loads(l) for l in capsys.readouterr().out.strip().splitlines()]
+    assert lines[0]["outcome"]["label"] == "skipped_no_consensus"
+
+
+def test_cli_link_ta(tmp_path, capsys, monkeypatch):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE"), path)
+    analysis_root = tmp_path / "analysis"
+    write_consensus(analysis_root, "2026-06-12", "ADBE")
+    monkeypatch.setattr(ledger, "PROJECT_ROOT", str(tmp_path))
+    assert ledger.main(["--ledger", path, "link-ta", "--date", "2026-06-12"]) == 0
+    assert json.loads(capsys.readouterr().out.strip()) == {"linked": ["ADBE"]}
+
+
+# --- Part B: hardening ---
+
+
+def test_validate_rejects_bool_last_price_and_non_dict(tmp_path):
+    record = make_record()
+    record["dip"]["last_price"] = True
+    with pytest.raises(ValueError, match="last_price"):
+        ledger.append_record(record, str(tmp_path / "l.jsonl"))
+    with pytest.raises(ValueError, match="JSON object"):
+        ledger.append_record([1, 2], str(tmp_path / "l.jsonl"))
+
+
+def test_append_record_bare_filename(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ledger.append_record(make_record(), "ledger.jsonl")
+    assert ledger.load_records("ledger.jsonl")[0]["ticker"] == "ADBE"
+
+
+def test_link_ta_invalid_consensus_file_is_hard_error(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    analysis_root = tmp_path / "analysis"
+    ledger.append_record(make_record(ticker="ADBE"), path)
+    day_dir = analysis_root / "2026-06-12"
+    day_dir.mkdir(parents=True)
+    (day_dir / "ADBE_ta_consensus.json").write_text("{not json")
+    with pytest.raises(ValueError, match="ADBE_ta_consensus.json"):
+        ledger.link_ta("2026-06-12", path, analysis_root=str(analysis_root))
+
+
+def test_cli_link_ta_rejects_malformed_date(tmp_path, capsys):
+    assert ledger.main(["--ledger", str(tmp_path / "l.jsonl"), "link-ta", "--date", "2026-6-1"]) == 1
+    assert "date" in capsys.readouterr().err
