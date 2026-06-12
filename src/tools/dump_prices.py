@@ -8,10 +8,13 @@ Usage:
     poetry run python -m src.tools.dump_prices --tickers ADBE,NVDA [--days 180] [--out DIR]
 """
 
+import json
 import os
+import sys
 from datetime import date, datetime, timedelta
 
 from src.data.models import Price
+from src.tools.api import get_prices
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -25,7 +28,11 @@ def compute_eow_date(today: date) -> str:
 
 
 def build_payload(ticker: str, prices: list[Price], today: date) -> dict:
-    """Shape one ticker's price history into the JSON the TA agents read."""
+    """Shape one ticker's price history into the JSON the TA agents read.
+
+    ``prices`` must be non-empty and ordered oldest-first (``current_price``
+    is the last row's close).
+    """
     rows = [{"date": p.time[:10], "open": p.open, "high": p.high, "low": p.low, "close": p.close, "volume": p.volume} for p in prices]
     return {
         "ticker": ticker,
@@ -34,3 +41,31 @@ def build_payload(ticker: str, prices: list[Price], today: date) -> dict:
         "eow_date": compute_eow_date(today),
         "prices": rows,
     }
+
+
+def dump_prices(tickers: list[str], days: int, out_dir: str, today: date | None = None) -> list[str]:
+    """Fetch and write ``<TICKER>_prices.json`` per ticker; return written paths.
+
+    A ticker whose fetch raises or returns no rows is reported on stderr and
+    skipped — no placeholder file, no fallback data.
+    """
+    today = today or date.today()
+    os.makedirs(out_dir, exist_ok=True)
+    start = (today - timedelta(days=days)).isoformat()
+    written: list[str] = []
+    for ticker in tickers:
+        ticker = ticker.strip().upper()
+        try:
+            prices = get_prices(ticker, start, today.isoformat())
+        except Exception as e:  # noqa: BLE001
+            print(f"[dump_prices] {ticker}: fetch failed: {e}", file=sys.stderr)
+            continue
+        if not prices:
+            print(f"[dump_prices] {ticker}: no price data returned, skipping", file=sys.stderr)
+            continue
+        path = os.path.join(out_dir, f"{ticker}_prices.json")
+        with open(path, "w") as f:
+            json.dump(build_payload(ticker, prices, today), f, indent=2)
+        written.append(path)
+        print(f"Wrote {os.path.relpath(path, PROJECT_ROOT)} ({len(prices)} candles)")
+    return written
