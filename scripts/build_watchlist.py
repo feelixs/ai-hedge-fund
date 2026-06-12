@@ -12,6 +12,7 @@ watchlist: output is written to a temp file and renamed only on success.
 import argparse
 import io
 import os
+import re
 from datetime import datetime
 
 import requests
@@ -27,6 +28,10 @@ def parse_wikipedia_constituents(html: str) -> list[tuple[str, str, str]]:
     Selects the table by its column names (must have both 'Symbol' and
     'Company'), never by position or size. Normalizes share-class tickers for
     yfinance (BRK.B -> BRK-B). Dedupes preserving order.
+
+    Limitation: a multi-row table header (pandas MultiIndex columns) would not
+    match and raises ValueError — loud and safe, but revisit if Wikipedia ever
+    restructures the table header.
     """
     import pandas as pd
 
@@ -40,6 +45,7 @@ def parse_wikipedia_constituents(html: str) -> list[tuple[str, str, str]]:
     seen: set[str] = set()
     for _, row in table.iterrows():
         raw_ticker = str(row["Symbol"]).strip()
+        raw_ticker = re.sub(r"\[.*?\]", "", raw_ticker).strip()  # strip Wikipedia footnote markers like AAPL[1]
         if not raw_ticker or raw_ticker.lower() == "nan":
             continue
         ticker = raw_ticker.upper().replace(".", "-").replace("/", "-").replace(" ", "-")
@@ -75,8 +81,11 @@ def write_watchlist(content: str, output_path: str) -> None:
 
 def download_page(url: str) -> str:
     """Fetch the Wikipedia page. Descriptive UA per Wikipedia bot etiquette."""
-    response = requests.get(url, headers={"User-Agent": "ai-hedge-fund-watchlist-builder/1.0 (personal research tool)"}, timeout=REQUEST_TIMEOUT)
-    response.raise_for_status()
+    try:
+        response = requests.get(url, headers={"User-Agent": "ai-hedge-fund-watchlist-builder/1.0 (personal research tool)"}, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise SystemExit(f"Failed to download {url}: {e}")
     return response.text
 
 

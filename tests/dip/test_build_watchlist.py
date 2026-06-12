@@ -13,6 +13,7 @@ FIXTURE_HTML = """<html><body>
 <tr><td>3M</td><td>MMM</td><td>Industrials</td><td>Industrial Conglomerates</td></tr>
 <tr><td>Berkshire Hathaway</td><td>BRK.B</td><td>Financials</td><td>Multi-Sector Holdings</td></tr>
 <tr><td>Brown-Forman</td><td>BF/B</td><td>Consumer Staples</td><td>Distillers</td></tr>
+<tr><td>Nvidia</td><td>NVDA[2]</td><td>Information Technology</td><td>Semiconductors</td></tr>
 <tr><td>3M</td><td>MMM</td><td>Industrials</td><td>Industrial Conglomerates</td></tr>
 </table>
 </body></html>"""
@@ -20,7 +21,7 @@ FIXTURE_HTML = """<html><body>
 
 def test_parse_wikipedia_selects_table_by_columns_normalizes_and_dedupes():
     holdings = parse_wikipedia_constituents(FIXTURE_HTML)
-    assert [h[0] for h in holdings] == ["MMM", "BRK-B", "BF-B"]  # decoy table skipped, share classes normalized, MMM deduped
+    assert [h[0] for h in holdings] == ["MMM", "BRK-B", "BF-B", "NVDA"]  # decoy table skipped, share classes normalized, footnote stripped, MMM deduped
     assert holdings[0] == ("MMM", "3M", "Industrials")
 
 
