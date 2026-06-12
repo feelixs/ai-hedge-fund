@@ -124,3 +124,55 @@ def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str |
     if linked:
         _rewrite(path, records)
     return linked
+
+
+def _eow_close(ticker: str, eow_date: str, fetch) -> float | None:
+    """Close on the EOW date, or the last close before it (market holiday); None if the window has no candles."""
+    start = (date.fromisoformat(eow_date) - timedelta(days=10)).isoformat()
+    candles = [p for p in fetch(ticker, start, eow_date) if p.time[:10] <= eow_date]
+    return candles[-1].close if candles else None
+
+
+def score(path: str = DEFAULT_LEDGER_PATH, today: date | None = None, fetch=None) -> list[dict]:
+    """Stamp outcomes on matured, unscored records; returns the newly scored records.
+
+    Matured means today is strictly after the record's EOW date. Records
+    without a usable consensus target are stamped ``skipped_no_consensus``
+    without any price fetch. A failed price fetch leaves the record unscored
+    (warned on stderr) so the next run retries it.
+    """
+    today = today or date.today()
+    fetch = fetch or get_prices
+    records = load_records(path)
+    scored: list[dict] = []
+    for record in records:
+        if record.get("outcome") is not None:
+            continue
+        ta = record.get("ta")
+        eow_date = ta["eow_date"] if ta else compute_eow_date(date.fromisoformat(record["judged_at"][:10]))
+        if today.isoformat() <= eow_date:
+            continue
+        stamped_at = datetime.now().isoformat(timespec="seconds")
+        if ta is None or not ta.get("validated") or ta.get("consensus_target") is None:
+            record["outcome"] = {"label": "skipped_no_consensus", "basis": None, "eow_close": None, "scored_at": stamped_at}
+            scored.append(record)
+            continue
+        try:
+            eow_close = _eow_close(record["ticker"], eow_date, fetch)
+        except Exception as e:  # noqa: BLE001 - leave unscored so the next run retries
+            print(f"[ledger] {record['ticker']}: price fetch failed, leaving unscored: {e}", file=sys.stderr)
+            continue
+        if eow_close is None:
+            print(f"[ledger] {record['ticker']}: no closes on/before {eow_date}, leaving unscored", file=sys.stderr)
+            continue
+        target = ta["consensus_target"]
+        action = record["verdict"]["suggested_action"]
+        if action == "buy_dip":
+            label = "good_call" if eow_close >= target else ("bad_call" if eow_close <= record["dip"]["last_price"] * BAD_CALL_DROP else "inconclusive")
+        else:
+            label = "dip_opportunity_missed" if eow_close >= target else "good_call"
+        record["outcome"] = {"label": label, "basis": "consensus_target", "eow_close": eow_close, "scored_at": stamped_at}
+        scored.append(record)
+    if scored:
+        _rewrite(path, records)
+    return scored

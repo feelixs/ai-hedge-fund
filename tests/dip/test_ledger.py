@@ -97,3 +97,75 @@ def test_link_ta_skips_other_dates_and_already_linked(tmp_path):
     write_consensus(analysis_root, "2026-06-12", "ADBE")
     assert ledger.link_ta("2026-06-12", path, analysis_root=str(analysis_root)) == []
     assert ledger.load_records(path)[0]["ta"] is None
+
+
+def linked_record(action="avoid", validated=True, target=158.0, last_price=152.3):
+    record = make_record(action=action, last_price=last_price)
+    record["ta"] = {"eow_date": "2026-06-19", "validated": validated, "consensus_target": target, "consensus_low": 150.0, "consensus_high": 164.0, "consensus_path": "analysis/2026-06-12/ADBE_ta_consensus.json"}
+    return record
+
+
+def append_raw(path, record):
+    record.setdefault("ta", None)
+    record.setdefault("outcome", None)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+
+def fetch_close(close, day="2026-06-19"):
+    return lambda ticker, start, end: [make_price(day, close)]
+
+
+@pytest.mark.parametrize(
+    "action,close,expected",
+    [
+        ("avoid", 160.0, "dip_opportunity_missed"),       # sat out, price reached target
+        ("wait_for_confirmation", 149.0, "good_call"),    # sat out, never got there
+        ("buy_dip", 160.0, "good_call"),                  # bought, target hit
+        ("buy_dip", 147.0, "bad_call"),                   # bought, fell >3% below dip price
+        ("buy_dip", 151.0, "inconclusive"),               # bought, in between
+    ],
+)
+def test_score_rule_branches(tmp_path, action, close, expected):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, linked_record(action=action))
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch_close(close))
+    assert [r["outcome"]["label"] for r in scored] == [expected]
+    stored = ledger.load_records(path)[0]["outcome"]
+    assert stored["label"] == expected and stored["basis"] == "consensus_target" and stored["eow_close"] == close
+
+
+@pytest.mark.parametrize("record", [make_record(), linked_record(validated=False), linked_record(target=None)])
+def test_score_stamps_skipped_when_no_usable_consensus(tmp_path, record):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, record)
+    def explode(ticker, start, end):
+        raise AssertionError("price fetch must not happen for skipped records")
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=explode)
+    assert scored[0]["outcome"] == {"label": "skipped_no_consensus", "basis": None, "eow_close": None, "scored_at": scored[0]["outcome"]["scored_at"]}
+
+
+def test_score_leaves_unmatured_and_already_scored_alone(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, linked_record())
+    assert ledger.score(path, today=date(2026, 6, 19), fetch=fetch_close(160.0)) == []  # EOW day itself: not matured
+    ledger.score(path, today=date(2026, 6, 22), fetch=fetch_close(160.0))
+    assert ledger.score(path, today=date(2026, 6, 23), fetch=fetch_close(999.0)) == []  # already scored
+
+
+def test_score_uses_last_close_on_or_before_eow(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, linked_record(action="avoid"))
+    fetch = lambda ticker, start, end: [make_price("2026-06-17", 140.0), make_price("2026-06-18", 165.0)]  # holiday Friday: no 06-19 candle
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch)
+    assert scored[0]["outcome"]["eow_close"] == 165.0 and scored[0]["outcome"]["label"] == "dip_opportunity_missed"
+
+
+def test_score_fetch_failure_leaves_record_unscored(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, linked_record())
+    def boom(ticker, start, end):
+        raise RuntimeError("api down")
+    assert ledger.score(path, today=date(2026, 6, 22), fetch=boom) == []
+    assert ledger.load_records(path)[0]["outcome"] is None
+    assert "leaving unscored" in capsys.readouterr().err
