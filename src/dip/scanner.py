@@ -125,7 +125,11 @@ def fetch_price_dfs(tickers: list[str], start_date: str, end_date: str, api_key:
         if not prices:
             print(f"[dip] no price data for {ticker}, skipping")
             return ticker, None
-        return ticker, prices_to_df(prices)
+        try:
+            return ticker, prices_to_df(prices)
+        except Exception as e:  # noqa: BLE001 - malformed records must skip the ticker, not kill the scan
+            print(f"[dip] price data malformed for {ticker}: {e}")
+            return ticker, None
 
     dfs: dict[str, pd.DataFrame] = {}
     with ThreadPoolExecutor(max_workers=MAX_FETCH_WORKERS) as pool:

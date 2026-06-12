@@ -102,10 +102,12 @@ def test_fetch_price_dfs_warns_and_skips_bad_tickers(monkeypatch):
             raise RuntimeError("rate limited")
         if ticker == "EMPTY":
             return []
+        if ticker == "MALFORMED":
+            return [object()]  # non-Price junk: prices_to_df raises -> must skip, not kill the scan
         return good
 
     monkeypatch.setattr(scanner, "get_prices", fake_get_prices)
-    tickers = ["BOOM", "EMPTY"] + [f"OK{i}" for i in range(20)]  # more tickers than MAX_FETCH_WORKERS
+    tickers = ["BOOM", "EMPTY", "MALFORMED"] + [f"OK{i}" for i in range(20)]  # more tickers than MAX_FETCH_WORKERS
     dfs = scanner.fetch_price_dfs(tickers, "2026-06-01", "2026-06-11", None)
     assert sorted(dfs) == sorted(f"OK{i}" for i in range(20))  # failing and empty tickers skipped, all others fetched
     assert all(len(df) == 2 for df in dfs.values())
