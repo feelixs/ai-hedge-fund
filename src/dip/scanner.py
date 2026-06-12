@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 from src.dip.detection import DEFAULT_EXCESS_PCT, DEFAULT_MAX_CANDIDATES, DEFAULT_THRESHOLD_PCT, DipCandidate, detect_dips, load_watchlist
 from src.dip.judge import DipVerdict, build_dip_prompt, build_math_packet, fetch_headlines
-from src.llm.claude_code_bridge import call_claude_code
+from src.llm.claude_code_bridge import call_claude_code, set_slash_command
 from src.tools.api import get_prices, prices_to_df
 
 PRICE_LOOKBACK_CALENDAR_DAYS = 45  # enough for 20 trading-day volume/high stats
@@ -130,6 +130,7 @@ def fetch_price_dfs(tickers: list[str], start_date: str, end_date: str, api_key:
 
 def main():
     """CLI entry point: detect dips, write judge prompts, block for /judge-dips, report."""
+    set_slash_command("/judge-dips")  # the bridge's banner/status must name OUR answering command, not /answer-hedge-agent
     parser = argparse.ArgumentParser(description="Dip scanner — flags sharp stock-specific drops and has Claude Code judge the news (run /judge-dips when prompted)")
     parser.add_argument("--tickers", type=str, default=None, help="Comma-separated tickers (overrides the watchlist for ad-hoc runs)")
     parser.add_argument("--watchlist", type=str, default="watchlist.txt", help="Path to watchlist file (default: watchlist.txt)")

@@ -30,6 +30,12 @@ OUTPUTS_DIR = os.path.join(CLAUDE_AGENT_DIR, "outputs")
 SLASH_COMMAND = "/answer-hedge-agent"
 POLL_SECONDS = 1.0
 
+
+def set_slash_command(command: str) -> None:
+    """Point the bridge's user-facing messages (startup banner, waiting status) at the slash command that answers this process's prompts."""
+    global SLASH_COMMAND
+    SLASH_COMMAND = command
+
 # Unique, thread-safe id per LLM call so concurrent calls never share a file.
 _id_counter = itertools.count()
 _init_lock = threading.Lock()
