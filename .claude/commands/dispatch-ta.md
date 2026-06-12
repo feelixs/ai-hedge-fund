@@ -15,8 +15,10 @@ it works purely on files on disk.
 
 1. **Resolve tickers.** If arguments were given above, treat them as a
    comma/space-separated ticker list and skip to step 2 (there may be no
-   persona context — that is fine). Otherwise find the newest persona run:
-   the most recent `analysis/<date>/*.json` whose name does NOT contain
+   persona context — that is fine). Normalize them to uppercase — all
+   emitted files use uppercase tickers. Otherwise find the newest persona
+   run: the most recent run file (newest `analysis/<date>/` directory, then
+   latest `_HHMMSS` timestamp in the filename) whose name does NOT contain
    `_prices` or `_ta_` (run files look like `ADBE_113233.json` or
    `ADBE-NVDA_113233.json`). Read it; take its `tickers` list and, per
    ticker, the `decisions[<TICKER>]` action/confidence for judge context.
@@ -30,14 +32,19 @@ it works purely on files on disk.
    ```
 
    It writes `analysis/<today>/<TICKER>_prices.json` per ticker and prints
-   what it wrote. Tickers it reports as skipped (stderr) are excluded from
+   what it wrote. If `analysis/<today>/<TICKER>_ta_*.json` files already
+   exist from an earlier run today, delete them now — stale lens or
+   consensus outputs must not mask a failed agent or leak into the judge.
+   Tickers it reports as skipped (stderr) are excluded from
    the fan-out and listed in your final report. If it exits non-zero
    (nothing succeeded), report that and stop.
 
 3. **Fan out 4 lens agents per ticker, in parallel** — send ALL Task tool
    calls for all tickers in a single message. Use the `general-purpose`
    subagent type and **spawn every subagent on the Sonnet model** (pass
-   `model: "sonnet"`), the same convention as /answer-hedge-agent. The four
+   `model: "sonnet"`), the same convention as /answer-hedge-agent (Sonnet
+   is the right tier for this and conserves usage limits — do not spawn
+   these on Opus). The four
    lenses and their assigned methodologies:
 
    - `trend_momentum` — 20/50-day moving averages, MACD, ADX, recent swing
@@ -75,8 +82,12 @@ it works purely on files on disk.
 5. **Judge per ticker, in parallel** — one `general-purpose` subagent per
    surviving ticker, also on Sonnet, all Task calls in one message:
 
-   > Read the files `<ABS_PATH_TO>/<TICKER>_ta_*.json` — end-of-week target
-   > prices for <TICKER> from independent technical-analysis lenses
+   Substitute the explicit lens-file paths you verified in step 4 — do not
+   give the judge a glob (it could match a stale consensus file).
+
+   > Read these lens files: <EXPLICIT_LIST_OF_VERIFIED_LENS_FILE_PATHS> —
+   > end-of-week target prices for <TICKER> from independent
+   > technical-analysis lenses
    > (expected: trend_momentum, mean_reversion, support_resistance,
    > volatility; if any are missing, proceed and note the gap). Persona
    > context: <"the hedge-fund run decided ACTION with CONFIDENCE%
