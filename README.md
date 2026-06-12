@@ -130,6 +130,42 @@ poetry run python src/backtester.py --ticker AAPL,MSFT,NVDA
 
 Note: The `--ollama`, `--start-date`, and `--end-date` flags work for the backtester, as well!
 
+### 📉 Dip Scanner
+
+The dip scanner flags sharp, stock-specific single-day drops and uses Claude Code subagents to classify each one as a transitory dip worth buying or a thesis-breaking event to avoid.
+
+#### Setup
+
+Add one ticker per line to `watchlist.txt` (lines starting with `#` are treated as comments).
+
+#### Run the Dip Scanner
+
+```bash
+./dip.sh
+```
+
+You can override the watchlist and tune the detection thresholds:
+
+```bash
+./dip.sh --tickers NKE,SBUX --threshold 5 --excess 4 --max-candidates 10
+```
+
+- `--threshold` — minimum total drop to flag (magnitude in %, default 5)
+- `--excess` — minimum excess drop vs SPY required (magnitude in %, default 4)
+- `--max-candidates` — cap on how many dips are judged per run (default 10)
+
+#### How judging works
+
+For each flagged dip the scanner writes a judge prompt to `claude_agent/prompts/` and then blocks. In a separate Claude Code session open to this repo, run:
+
+```
+/judge-dips
+```
+
+Subagents web-research the news behind each drop and classify it as **transitory** (buy the dip) or **thesis-breaking** (avoid). Once all verdicts are in, the scanner prints a ranked report and saves it to `scans/dips_<timestamp>/`.
+
+> **Warning:** do not start `./dip.sh` and `./run.sh` at the same moment — both wipe `claude_agent/prompts/` on launch. Running them concurrently after startup is fine.
+
 ### 🖥️ Web Application
 
 The new way to run the AI Hedge Fund is through our web application that provides a user-friendly interface. This is recommended for users who prefer visual interfaces over command line tools.

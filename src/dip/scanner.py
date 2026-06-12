@@ -168,6 +168,9 @@ def main():
     if cut:
         print(f"Cut by --max-candidates (not judged): {', '.join(cut)}")
 
+    if len(candidates) > MAX_JUDGE_WORKERS:
+        print(f"NOTE: {len(candidates)} candidates exceed the {MAX_JUDGE_WORKERS}-thread judge pool — prompts will appear in waves; re-run /judge-dips until none remain.")
+
     banner = "=" * 70
     print(f"\n{banner}\nWriting one judge prompt per candidate to claude_agent/prompts/.\nIn a Claude Code session in this repo, run:  /judge-dips\n(NOT /answer-hedge-agent — the dip judge needs web research.)\nThis process blocks until every verdict is in.\n{banner}\n")
 
