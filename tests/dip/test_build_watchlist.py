@@ -34,6 +34,11 @@ def test_parse_keeps_only_equities_normalizes_and_dedupes():
     assert holdings[0] == ("AAPL", "APPLE INC", "Information Technology")
 
 
+def test_parse_tolerates_utf8_bom():
+    holdings = parse_ishares_holdings("﻿" + FIXTURE_CSV)
+    assert [h[0] for h in holdings] == ["AAPL", "MSFT", "BRK-B", "BF-B"]
+
+
 def test_parse_raises_when_no_header_row_found():
     with pytest.raises(ValueError):
         parse_ishares_holdings("totally,not,a\nholdings,file,at all\n")

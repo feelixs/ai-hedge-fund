@@ -30,7 +30,7 @@ def parse_ishares_holdings(csv_text: str) -> list[tuple[str, str, str]]:
     normalizes share-class tickers for yfinance (BRK.B -> BRK-B). Dedupes
     preserving order.
     """
-    lines = csv_text.splitlines()
+    lines = csv_text.lstrip("﻿").splitlines()
     header_idx = next((i for i, line in enumerate(lines) if line.startswith("Ticker,")), None)
     if header_idx is None:
         raise ValueError("No 'Ticker,' header row found — not an iShares holdings CSV?")
@@ -68,7 +68,7 @@ def render_watchlist(holdings: list[tuple[str, str, str]], source_url: str, fetc
 def write_watchlist(content: str, output_path: str) -> None:
     """Atomic write: temp file then rename, so a failure never clobbers the existing file."""
     tmp_path = output_path + ".tmp"
-    with open(tmp_path, "w") as f:
+    with open(tmp_path, "w", encoding="utf-8") as f:
         f.write(content)
     os.replace(tmp_path, output_path)
 
