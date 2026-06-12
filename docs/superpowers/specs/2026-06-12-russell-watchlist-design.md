@@ -17,11 +17,25 @@ the math packet and the `/judge-dips` research step carry the quality
 assessment per dip, and the 10-candidate cap keeps AI usage flat regardless of
 universe size.
 
+## Revision (2026-06-12, same day)
+
+The iShares endpoint serves a TLS-fingerprinting bot wall to all scripted
+clients (HTTP 200 + `text/csv` content-type, HTML body) — confirmed with full
+browser headers via both requests and curl. **Source switched to the Wikipedia
+"Russell 1000 Index" components table** (user's choice over a manual-download
+`--input` flag): 1,004 rows with Company/Symbol/GICS Sector columns, verified
+script-accessible and current to the April 2026 reconstitution. Parser becomes
+`parse_wikipedia_constituents(html)` via `pandas.read_html` (new dep: lxml);
+the table is selected by its column names (has both `Symbol` and `Company`),
+never by position or size. Known trade-off: community-maintained, may lag a
+future reconstitution by weeks. Everything else (renderer, atomic writer,
+MIN_TICKERS guard, CLI) is unchanged.
+
 ## Key decisions
 
 | Decision | Choice |
 |----------|--------|
-| Source | iShares IWB holdings CSV (free, daily-updated, authoritative) |
+| Source | ~~iShares IWB holdings CSV~~ → Wikipedia Russell 1000 components table (see Revision) |
 | Integration | Script REPLACES `watchlist.txt` (the default `./dip.sh` universe) |
 | Refresh model | Manual re-run a few times a year; no scheduling, no caching |
 | Scan latency fix | Parallelize `fetch_price_dfs` (~8 workers) |
