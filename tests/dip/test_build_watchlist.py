@@ -1,47 +1,32 @@
-"""Tests for the Russell 1000 watchlist builder (iShares IWB CSV parsing + file writing)."""
+"""Tests for the Russell 1000 watchlist builder (Wikipedia components table parsing + file writing)."""
 
 import os
 
 import pytest
 
-from scripts.build_watchlist import MIN_TICKERS, parse_ishares_holdings, render_watchlist, write_watchlist
+from scripts.build_watchlist import MIN_TICKERS, parse_wikipedia_constituents, render_watchlist, write_watchlist
 
-FIXTURE_CSV = """iShares Russell 1000 ETF
-Fund Holdings as of,"Jun 10, 2026"
-Inception Date,"May 15, 2000"
-Shares Outstanding,"123,456,789"
-Stock,"-"
-CUSIP,"464287622"
-
-Ticker,Name,Sector,Asset Class,Market Value,Weight (%),Price
-AAPL,APPLE INC,Information Technology,Equity,"1,000","5.0","200.00"
-MSFT,MICROSOFT CORP,Information Technology,Equity,"900","4.5","400.00"
-BRK.B,BERKSHIRE HATHAWAY INC CL B,Financials,Equity,"800","4.0","450.00"
-BF/B,BROWN FORMAN CORP CLASS B,Consumer Staples,Equity,"100","0.5","50.00"
-AAPL,APPLE INC,Information Technology,Equity,"1","0.0","200.00"
-XTSLA,BLK CSH FND TREASURY SL AGENCY,Cash and/or Derivatives,Money Market,"50","0.2","1.00"
-MARGIN_USD,FUTURES USD MARGIN BALANCE,Cash and/or Derivatives,Cash Collateral,"10","0.0","1.00"
--,USD CASH,Cash and/or Derivatives,Cash,"5","0.0","1.00"
-
-"The content contained herein is owned or licensed by BlackRock."
-"""
+FIXTURE_HTML = """<html><body>
+<table class="wikitable"><tr><th>Year</th><th>Return</th></tr><tr><td>1995</td><td>34%</td></tr></table>
+<table class="wikitable sortable">
+<tr><th>Company</th><th>Symbol</th><th>GICS Sector</th><th>GICS Sub-Industry</th></tr>
+<tr><td>3M</td><td>MMM</td><td>Industrials</td><td>Industrial Conglomerates</td></tr>
+<tr><td>Berkshire Hathaway</td><td>BRK.B</td><td>Financials</td><td>Multi-Sector Holdings</td></tr>
+<tr><td>Brown-Forman</td><td>BF/B</td><td>Consumer Staples</td><td>Distillers</td></tr>
+<tr><td>3M</td><td>MMM</td><td>Industrials</td><td>Industrial Conglomerates</td></tr>
+</table>
+</body></html>"""
 
 
-def test_parse_keeps_only_equities_normalizes_and_dedupes():
-    holdings = parse_ishares_holdings(FIXTURE_CSV)
-    tickers = [h[0] for h in holdings]
-    assert tickers == ["AAPL", "MSFT", "BRK-B", "BF-B"]  # equity-only, BRK.B/BF\B normalized, AAPL deduped
-    assert holdings[0] == ("AAPL", "APPLE INC", "Information Technology")
+def test_parse_wikipedia_selects_table_by_columns_normalizes_and_dedupes():
+    holdings = parse_wikipedia_constituents(FIXTURE_HTML)
+    assert [h[0] for h in holdings] == ["MMM", "BRK-B", "BF-B"]  # decoy table skipped, share classes normalized, MMM deduped
+    assert holdings[0] == ("MMM", "3M", "Industrials")
 
 
-def test_parse_tolerates_utf8_bom():
-    holdings = parse_ishares_holdings("﻿" + FIXTURE_CSV)
-    assert [h[0] for h in holdings] == ["AAPL", "MSFT", "BRK-B", "BF-B"]
-
-
-def test_parse_raises_when_no_header_row_found():
+def test_parse_wikipedia_raises_when_no_constituents_table():
     with pytest.raises(ValueError):
-        parse_ishares_holdings("totally,not,a\nholdings,file,at all\n")
+        parse_wikipedia_constituents("<html><table><tr><th>Year</th></tr><tr><td>1995</td></tr></table></html>")
 
 
 def test_render_watchlist_format():
@@ -83,3 +68,19 @@ def test_write_watchlist_is_atomic_on_failure(tmp_path, monkeypatch):
 
 def test_min_tickers_guard_value():
     assert MIN_TICKERS == 500
+
+
+def test_main_aborts_below_min_tickers_and_leaves_file(tmp_path, monkeypatch):
+    import scripts.build_watchlist as bw
+
+    out = tmp_path / "watchlist.txt"
+    out.write_text("PRECIOUS\n")
+
+    tiny_html = '<table><tr><th>Company</th><th>Symbol</th><th>GICS Sector</th></tr><tr><td>Apple</td><td>AAPL</td><td>Tech</td></tr></table>'
+    monkeypatch.setattr(bw, "download_page", lambda url: tiny_html)
+    monkeypatch.setattr("sys.argv", ["build_watchlist.py", "--output", str(out)])
+
+    with pytest.raises(SystemExit) as exc:
+        bw.main()
+    assert "malformed" in str(exc.value)
+    assert out.read_text() == "PRECIOUS\n"

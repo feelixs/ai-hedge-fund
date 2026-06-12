@@ -1,67 +1,1009 @@
-# Curated quality watchlist for the dip scanner (./dip.sh).
-# One ticker per line. '#' starts a comment. Only list companies you'd be
-# happy to own at the right price — this list IS the quality filter.
+# GENERATED watchlist — Russell 1000 via the Wikipedia components table.
+# Source: https://en.wikipedia.org/wiki/Russell_1000_Index
+# Fetched: 2026-06-12 — 1003 tickers.
+# Regenerate with: poetry run python scripts/build_watchlist.py
+# Hand-prune freely; lines and trailing '#' comments survive load_watchlist().
 
-# Tech
-AAPL
-MSFT
-GOOGL
-AMZN
-TSLA
-NVDA
-META
-AMD
-INTC
-PLTR
-CRM
-ORCL
-ADBE
-CSCO
-IBM
-NFLX
-
-# Financials
-JPM
-BAC
-GS
-V
-MA
-BRK-B
-
-# Healthcare
-JNJ
-UNH
-PFE
-ABBV
-LLY
-MRK
-
-# Energy
-XOM
-CVX
-COP
-
-# Consumer
-WMT
-COST
-HD
-MCD
-NKE
-SBUX
-KO
-PEP
-
-# Industrials & Defense
-LMT
-CAT
-BA
-GE
-HON
-UPS
-RTX
-
-# Communications
-DIS
-T
-VZ
-CMCSA
+MMM  # 3M — Industrials
+AOS  # A. O. Smith — Industrials
+AAON  # AAON — Industrials
+ABT  # Abbott Laboratories — Health Care
+ABBV  # AbbVie — Health Care
+ACHC  # Acadia Healthcare — Health Care
+ACN  # Accenture — Information Technology
+AYI  # Acuity Brands — Industrials
+ADBE  # Adobe Inc. — Information Technology
+ADT  # ADT Inc. — Consumer Discretionary
+WMS  # Advanced Drainage Systems — Industrials
+AMD  # Advanced Micro Devices — Information Technology
+ACM  # AECOM — Industrials
+AES  # AES Corporation — Utilities
+AMG  # Affiliated Managers Group — Financials
+AFRM  # Affirm Holdings — Information Technology
+AFL  # Aflac — Financials
+AGCO  # AGCO — Industrials
+A  # Agilent Technologies — Health Care
+ADC  # Agree Realty — Real Estate
+AGNC  # AGNC Investment — Financials
+AL  # Air Lease Corporation — Industrials
+APD  # Air Products — Materials
+ABNB  # Airbnb — Consumer Discretionary
+AKAM  # Akamai Technologies — Information Technology
+ALK  # Alaska Air Group — Industrials
+ALB  # Albemarle Corporation — Materials
+ACI  # Albertsons — Consumer Staples
+AA  # Alcoa — Materials
+ARE  # Alexandria Real Estate Equities — Real Estate
+ALGN  # Align Technology — Health Care
+ALLE  # Allegion — Industrials
+ALGM  # Allegro MicroSystems — Information Technology
+LNT  # Alliant Energy — Utilities
+ALSN  # Allison Transmission — Industrials
+ALL  # Allstate — Financials
+ALLY  # Ally Financial — Financials
+ALNY  # Alnylam Pharmaceuticals — Health Care
+GOOGL  # Alphabet (Class A) — Communication Services
+GOOG  # Alphabet (Class C) — Communication Services
+MO  # Altria — Consumer Staples
+AMZN  # Amazon — Consumer Discretionary
+AMCR  # Amcor — Materials
+DOX  # Amdocs — Information Technology
+AMTM  # Amentum — Industrials
+AS  # Amer Sports — Consumer Discretionary
+AEE  # Ameren — Utilities
+AAL  # American Airlines Group — Industrials
+AEP  # American Electric Power — Utilities
+AXP  # American Express — Financials
+AFG  # American Financial Group — Financials
+AMH  # American Homes 4 Rent — Real Estate
+AIG  # American International Group — Financials
+AMT  # American Tower — Real Estate
+AWK  # American Water Works — Utilities
+COLD  # Americold — Real Estate
+AMP  # Ameriprise Financial — Financials
+AME  # Ametek — Industrials
+AMGN  # Amgen — Health Care
+AMKR  # Amkor Technology — Information Technology
+APH  # Amphenol — Information Technology
+ADI  # Analog Devices — Information Technology
+AU  # AngloGold Ashanti — Materials
+NLY  # Annaly Capital Management — Financials
+AM  # Antero Midstream — Energy
+AR  # Antero Resources — Energy
+AON  # Aon plc — Financials
+APA  # APA Corporation — Energy
+APG  # APi Group — Industrials
+APO  # Apollo Global Management — Financials
+APPF  # AppFolio — Information Technology
+AAPL  # Apple Inc. — Information Technology
+AIT  # Applied Industrial Technologies — Industrials
+AMAT  # Applied Materials — Information Technology
+APP  # AppLovin — Information Technology
+ATR  # AptarGroup — Materials
+APTV  # Aptiv — Consumer Discretionary
+ARMK  # Aramark — Consumer Discretionary
+ACGL  # Arch Capital Group — Financials
+ADM  # Archer Daniels Midland — Consumer Staples
+ARES  # Ares Management — Financials
+ANET  # Arista Networks — Information Technology
+AWI  # Armstrong World Industries — Industrials
+ARW  # Arrow Electronics — Information Technology
+AJG  # Arthur J. Gallagher & Co. — Financials
+ASH  # Ashland Global — Materials
+AIZ  # Assurant — Financials
+AGO  # Assured Guaranty — Financials
+ALAB  # Astera Labs — Information Technology
+ASTS  # AST SpaceMobile — Communication Services
+T  # AT&T — Communication Services
+ATI  # ATI Inc. — Industrials
+TEAM  # Atlassian — Information Technology
+ATO  # Atmos Energy — Utilities
+AUR  # Aurora Innovation — Information Technology
+ADSK  # Autodesk — Information Technology
+ADP  # Automatic Data Processing — Industrials
+AN  # AutoNation — Consumer Discretionary
+AZO  # AutoZone — Consumer Discretionary
+AVB  # AvalonBay Communities — Real Estate
+AVTR  # Avantor — Health Care
+AVY  # Avery Dennison — Materials
+CAR  # Avis Budget Group — Industrials
+AVT  # Avnet — Information Technology
+AXTA  # Axalta — Materials
+AXS  # AXIS Capital — Financials
+AXON  # Axon Enterprise — Industrials
+BKR  # Baker Hughes — Energy
+BALL  # Ball Corporation — Materials
+BAC  # Bank of America — Financials
+OZK  # Bank OZK — Financials
+BBWI  # Bath & Body Works, Inc. — Consumer Discretionary
+BAX  # Baxter International — Health Care
+BDX  # Becton Dickinson — Health Care
+BRBR  # BellRing Brands — Consumer Staples
+BSY  # Bentley Systems — Information Technology
+BRK-B  # Berkshire Hathaway — Financials
+BBY  # Best Buy — Consumer Discretionary
+BILL  # Bill.com — Information Technology
+BIO  # Bio-Rad Laboratories — Health Care
+TECH  # Bio-Techne — Health Care
+BIIB  # Biogen — Health Care
+BMRN  # BioMarin Pharmaceutical — Health Care
+BIRK  # Birkenstock — Consumer Discretionary
+BJ  # BJ's Wholesale Club — Consumer Staples
+BLK  # BlackRock — Financials
+BX  # Blackstone Inc. — Financials
+HRB  # H&R Block — Consumer Discretionary
+XYZ  # Block, Inc. — Financials
+OWL  # Blue Owl Capital — Financials
+BNY  # BNY Mellon — Financials
+BA  # Boeing — Industrials
+BOKF  # BOK Financial Corporation — Financials
+BKNG  # Booking Holdings — Consumer Discretionary
+BAH  # Booz Allen Hamilton — Industrials
+BWA  # BorgWarner — Consumer Discretionary
+SAM  # Boston Beer Company — Consumer Staples
+BSX  # Boston Scientific — Health Care
+BYD  # Boyd Gaming — Consumer Discretionary
+BFAM  # Bright Horizons — Consumer Discretionary
+BHF  # Brighthouse Financial — Financials
+BMY  # Bristol Myers Squibb — Health Care
+BRX  # Brixmor Property Group — Real Estate
+AVGO  # Broadcom — Information Technology
+BR  # Broadridge Financial Solutions — Industrials
+BAM  # Brookfield Asset Management — Financials
+BEPC  # Brookfield Renewable Partners — Utilities
+BRO  # Brown & Brown — Financials
+BF-A  # Brown–Forman (Class A) — Consumer Staples
+BF-B  # Brown–Forman (Class B) — Consumer Staples
+BRKR  # Bruker — Health Care
+BC  # Brunswick Corporation — Consumer Discretionary
+BLDR  # Builders FirstSource — Industrials
+BLSH  # Bullish — Financials
+BG  # Bunge Global — Consumer Staples
+BURL  # Burlington Stores — Consumer Discretionary
+BWXT  # BWX Technologies — Industrials
+BXP  # BXP, Inc. — Real Estate
+CHRW  # C.H. Robinson — Industrials
+CACI  # CACI — Industrials
+CDNS  # Cadence Design Systems — Information Technology
+CZR  # Caesars Entertainment — Consumer Discretionary
+CPT  # Camden Property Trust — Real Estate
+CPB  # Campbell Soup Company — Consumer Staples
+COF  # Capital One — Financials
+CAH  # Cardinal Health — Health Care
+CAI  # Caris Life Sciences — Health Care
+CSL  # Carlisle Companies — Industrials
+CG  # Carlyle Group (The) — Financials
+KMX  # CarMax — Consumer Discretionary
+CCL  # Carnival Corporation — Consumer Discretionary
+CRS  # Carpenter Technology Corporation — Materials
+CARR  # Carrier Global — Industrials
+CVNA  # Carvana — Consumer Discretionary
+CASY  # Casey's — Consumer Staples
+CAT  # Caterpillar Inc. — Industrials
+CAVA  # Cava Group — Consumer Discretionary
+CBOE  # Cboe Global Markets — Financials
+CBRE  # CBRE Group — Real Estate
+CCC  # CCC Intelligent Solutions — Information Technology
+CDW  # CDW — Information Technology
+CE  # Celanese — Materials
+CELH  # Celsius Holdings — Consumer Staples
+COR  # Cencora — Health Care
+CNC  # Centene — Health Care
+CNP  # Centerpoint Energy — Utilities
+CBC  # Central Bancompany — Financials
+CERT  # Certara, Inc. — Health Care
+CF  # CF Industries — Materials
+CRL  # Charles River Laboratories — Health Care
+SCHW  # Charles Schwab Corporation — Financials
+CHTR  # Charter Communications — Communication Services
+CHE  # Chemed Corporation — Health Care
+LNG  # Cheniere Energy — Energy
+CVX  # Chevron Corporation — Energy
+CHWY  # Chewy — Consumer Discretionary
+CMG  # Chipotle Mexican Grill — Consumer Discretionary
+CHH  # Choice Hotels — Consumer Discretionary
+CHRD  # Chord Energy — Energy
+CB  # Chubb Limited — Financials
+CHD  # Church & Dwight — Consumer Staples
+CHDN  # Churchill Downs Incorporated — Consumer Discretionary
+CIEN  # Ciena — Information Technology
+CI  # Cigna — Health Care
+CINF  # Cincinnati Financial — Financials
+CTAS  # Cintas — Industrials
+CRCL  # Circle Internet Group — Information Technology
+CRUS  # Cirrus Logic — Information Technology
+CSCO  # Cisco — Information Technology
+C  # Citigroup — Financials
+CFG  # Citizens Financial Group — Financials
+CLVT  # Clarivate — Industrials
+CLH  # Clean Harbors — Industrials
+CWEN-A  # Clearway Energy (Class A) — Utilities
+CWEN  # Clearway Energy (Class C) — Utilities
+CLF  # Cleveland-Cliffs — Materials
+CLX  # Clorox — Consumer Staples
+NET  # Cloudflare — Information Technology
+CME  # CME Group — Financials
+CMS  # CMS Energy — Utilities
+CNA  # CNA Financial — Financials
+CNH  # CNH Industrial — Industrials
+KO  # Coca-Cola Company (The) — Consumer Staples
+COKE  # Coca-Cola Consolidated — Consumer Staples
+CGNX  # Cognex Corporation — Information Technology
+CTSH  # Cognizant — Information Technology
+COHR  # Coherent Corp. — Information Technology
+COIN  # Coinbase — Financials
+CL  # Colgate-Palmolive — Consumer Staples
+COLB  # Columbia Banking System — Financials
+COLM  # Columbia Sportswear — Consumer Discretionary
+CMCSA  # Comcast — Communication Services
+FIX  # Comfort Systems USA — Industrials
+CBSH  # Commerce Bancshares — Financials
+CAG  # Conagra Brands — Consumer Staples
+CNXC  # Concentrix — Information Technology
+COP  # ConocoPhillips — Energy
+ED  # Consolidated Edison — Utilities
+STZ  # Constellation Brands — Consumer Staples
+CEG  # Constellation Energy — Utilities
+COO  # Cooper Companies (The) — Health Care
+CPRT  # Copart — Industrials
+CORT  # Corcept Therapeutics — Health Care
+CNM  # Core & Main — Industrials
+GLW  # Corning Inc. — Information Technology
+CPAY  # Corpay — Financials
+CTVA  # Corteva — Materials
+CSGP  # CoStar Group — Real Estate
+COST  # Costco — Consumer Staples
+COTY  # Coty — Consumer Staples
+CPNG  # Coupang — Consumer Discretionary
+CUZ  # Cousins Properties — Real Estate
+CR  # Crane Co. — Industrials
+CXT  # Crane NXT — Industrials
+CACC  # Credit Acceptance — Financials
+CRH  # CRH plc — Materials
+CROX  # Crocs — Consumer Discretionary
+CRWD  # CrowdStrike — Information Technology
+CCI  # Crown Castle — Real Estate
+CCK  # Crown Holdings — Materials
+CSX  # CSX Corporation — Industrials
+CUBE  # CubeSmart — Real Estate
+CMI  # Cummins — Industrials
+CW  # Curtiss-Wright — Industrials
+CVS  # CVS Health — Health Care
+DHI  # D. R. Horton — Consumer Discretionary
+DHR  # Danaher Corporation — Health Care
+DRI  # Darden Restaurants — Consumer Discretionary
+DAR  # Darling Ingredients — Consumer Staples
+DDOG  # Datadog — Information Technology
+DVA  # DaVita — Health Care
+DECK  # Deckers Brands — Consumer Discretionary
+DE  # Deere & Company — Industrials
+DAL  # Delta Air Lines — Industrials
+DELL  # Dell Technologies — Information Technology
+XRAY  # Dentsply Sirona — Health Care
+DVN  # Devon Energy — Energy
+DXCM  # Dexcom — Health Care
+FANG  # Diamondback Energy — Energy
+DKS  # Dick's Sporting Goods — Consumer Discretionary
+DLR  # Digital Realty — Real Estate
+DDS  # Dillard's — Consumer Discretionary
+DOCU  # DocuSign — Information Technology
+DLB  # Dolby Laboratories — Information Technology
+DG  # Dollar General — Consumer Staples
+DLTR  # Dollar Tree — Consumer Staples
+D  # Dominion Energy — Utilities
+DPZ  # Domino's — Consumer Discretionary
+DCI  # Donaldson Company — Industrials
+DASH  # DoorDash — Consumer Discretionary
+DV  # DoubleVerify — Information Technology
+DOV  # Dover Corporation — Industrials
+DOW  # Dow Inc. — Materials
+DOCS  # Doximity — Health Care
+DKNG  # DraftKings — Consumer Discretionary
+DBX  # Dropbox — Information Technology
+DTM  # DT Midstream — Energy
+DTE  # DTE Energy — Utilities
+DUK  # Duke Energy — Utilities
+DUOL  # Duolingo — Consumer Discretionary
+DD  # DuPont — Materials
+BROS  # Dutch Bros Inc. — Consumer Discretionary
+DXC  # DXC Technology — Information Technology
+DT  # Dynatrace — Information Technology
+ELF  # e.l.f. Beauty — Consumer Staples
+EXP  # Eagle Materials — Materials
+EWBC  # East West Bancorp — Financials
+EGP  # EastGroup Properties — Real Estate
+EMN  # Eastman Chemical Company — Materials
+ETN  # Eaton Corporation — Industrials
+EBAY  # eBay — Consumer Discretionary
+ECL  # Ecolab — Materials
+EIX  # Edison International — Utilities
+EW  # Edwards Lifesciences — Health Care
+ELAN  # Elanco — Health Care
+ESTC  # Elastic NV — Information Technology
+EA  # Electronic Arts — Communication Services
+ESI  # Element Solutions — Materials
+ELV  # Elevance Health — Health Care
+EME  # Emcor — Industrials
+EMR  # Emerson Electric — Industrials
+EHC  # Encompass Health — Health Care
+ENPH  # Enphase Energy — Information Technology
+ENTG  # Entegris — Information Technology
+ETR  # Entergy — Utilities
+NVST  # Envista — Health Care
+EOG  # EOG Resources — Energy
+EPAM  # EPAM Systems — Information Technology
+EPR  # EPR Properties — Real Estate
+EQT  # EQT Corporation — Energy
+EFX  # Equifax — Industrials
+EQIX  # Equinix — Real Estate
+EQH  # Equitable Holdings — Financials
+ELS  # Equity Lifestyle Properties — Real Estate
+EQR  # Equity Residential — Real Estate
+ESAB  # ESAB — Industrials
+WTRG  # Essential Utilities — Utilities
+ESS  # Essex Property Trust — Real Estate
+EL  # Estée Lauder Companies (The) — Consumer Staples
+ETSY  # Etsy — Consumer Discretionary
+EEFT  # Euronet Worldwide — Financials
+EVR  # Evercore — Financials
+EG  # Everest Group — Financials
+EVRG  # Evergy — Utilities
+P  # Everpure — Information Technology
+ES  # Eversource Energy — Utilities
+ECG  # Everus Construction Group — Industrials
+EXEL  # Exelixis — Health Care
+EXC  # Exelon — Utilities
+EXLS  # EXL Service — Industrials
+EXE  # Expand Energy — Energy
+EXPE  # Expedia Group — Consumer Discretionary
+EXPD  # Expeditors International — Industrials
+EXR  # Extra Space Storage — Real Estate
+XOM  # ExxonMobil — Energy
+FFIV  # F5, Inc. — Information Technology
+FDS  # FactSet — Financials
+FICO  # Fair Isaac — Information Technology
+FAST  # Fastenal — Industrials
+FRT  # Federal Realty Investment Trust — Real Estate
+FDX  # FedEx — Industrials
+FDXF  # FedEx Freight — Industrials
+FERG  # Ferguson Enterprises — Industrials
+FRMI  # Fermi Inc. — Real Estate
+FNF  # Fidelity National Financial — Financials
+FIS  # Fidelity National Information Services — Financials
+FITB  # Fifth Third Bancorp — Financials
+FIGR  # Figure Technology Solutions — Financials
+FAF  # First American Financial Corporation — Financials
+FCNCA  # First Citizens BancShares — Financials
+FHB  # First Hawaiian, Inc. — Financials
+FHN  # First Horizon Corporation — Financials
+FR  # First Industrial Realty Trust — Real Estate
+FSLR  # First Solar — Information Technology
+FE  # FirstEnergy — Utilities
+FISV  # Fiserv — Financials
+FIVE  # Five Below — Consumer Discretionary
+FLEX  # Flex Ltd. — Information Technology
+FND  # Floor & Decor — Consumer Discretionary
+FLO  # Flowers Foods — Consumer Staples
+FLS  # Flowserve — Industrials
+FLUT  # Flutter Entertainment — Consumer Discretionary
+FMC  # FMC Corporation — Materials
+FNB  # FNB Corporation — Financials
+F  # Ford Motor Company — Consumer Discretionary
+FTNT  # Fortinet — Information Technology
+FTV  # Fortive — Industrials
+FBIN  # Fortune Brands Innovations — Industrials
+FOXA  # Fox Corporation (Class A) — Communication Services
+FOX  # Fox Corporation (Class B) — Communication Services
+BEN  # Franklin Templeton Investments — Financials
+FRHC  # Freedom Holding — Financials
+FCX  # Freeport-McMoRan — Materials
+FRPT  # Freshpet — Consumer Staples
+CFR  # Frost Bank — Financials
+FTAI  # FTAI Aviation — Industrials
+FCN  # FTI Consulting — Industrials
+GME  # GameStop — Consumer Discretionary
+GLPI  # Gaming and Leisure Properties — Real Estate
+GAP  # Gap Inc. — Consumer Discretionary
+GRMN  # Garmin — Consumer Discretionary
+IT  # Gartner — Information Technology
+GTES  # Gates Corporation — Industrials
+GLIBA  # GCI Liberty (Series A) — Communication Services
+GLIBK  # GCI Liberty (Series C) — Communication Services
+GE  # GE Aerospace — Industrials
+GEHC  # GE HealthCare — Health Care
+GEV  # GE Vernova — Industrials
+GEN  # Gen Digital — Information Technology
+GNRC  # Generac — Industrials
+GD  # General Dynamics — Industrials
+GIS  # General Mills — Consumer Staples
+GM  # General Motors — Consumer Discretionary
+G  # Genpact — Industrials
+GNTX  # Gentex — Consumer Discretionary
+GPC  # Genuine Parts Company — Consumer Discretionary
+GILD  # Gilead Sciences — Health Care
+GTLB  # GitLab — Information Technology
+GPN  # Global Payments — Financials
+GFS  # GlobalFoundries — Information Technology
+GLOB  # Globant — Information Technology
+GL  # Globe Life — Financials
+GMED  # Globus Medical — Health Care
+GDDY  # GoDaddy — Information Technology
+GS  # Goldman Sachs — Financials
+GGG  # Graco Inc. — Industrials
+LOPE  # Grand Canyon Education — Consumer Discretionary
+GPK  # Graphic Packaging — Materials
+GWRE  # Guidewire Software — Information Technology
+GXO  # GXO Logistics — Industrials
+HAL  # Halliburton — Energy
+HALO  # Halozyme — Health Care
+HLNE  # Hamilton Lane — Financials
+THG  # Hanover Insurance — Financials
+HOG  # Harley-Davidson — Consumer Discretionary
+HIG  # Hartford (The) — Financials
+HAS  # Hasbro — Consumer Discretionary
+HAYW  # Hayward Holdings — Industrials
+HCA  # HCA Healthcare — Health Care
+HR  # Healthcare Realty Trust — Real Estate
+DOC  # Healthpeak Properties — Real Estate
+HEI-A  # HEICO (Class A) — Industrials
+HEI  # HEICO (Common) — Industrials
+JKHY  # Jack Henry & Associates — Financials
+HSY  # Hershey Company (The) — Consumer Staples
+HPE  # Hewlett Packard Enterprise — Information Technology
+HXL  # Hexcel — Industrials
+DINO  # HF Sinclair — Energy
+HIW  # Highwoods Properties — Real Estate
+HLT  # Hilton Worldwide — Consumer Discretionary
+HD  # Home Depot (The) — Consumer Discretionary
+HON  # Honeywell — Industrials
+HRL  # Hormel Foods — Consumer Staples
+HST  # Host Hotels & Resorts — Real Estate
+HLI  # Houlihan Lokey — Financials
+HHH  # Howard Hughes Holdings — Real Estate
+HWM  # Howmet Aerospace — Industrials
+HPQ  # HP Inc. — Information Technology
+HUBB  # Hubbell Incorporated — Industrials
+HUBS  # HubSpot — Information Technology
+HUM  # Humana — Health Care
+HBAN  # Huntington Bancshares — Financials
+HII  # Huntington Ingalls Industries — Industrials
+HUN  # Huntsman Corporation — Materials
+H  # Hyatt Hotels — Consumer Discretionary
+IBM  # IBM — Information Technology
+IDA  # Idacorp — Utilities
+IEX  # IDEX Corporation — Industrials
+IDXX  # Idexx Laboratories — Health Care
+ITW  # Illinois Tool Works — Industrials
+ILMN  # Illumina, Inc. — Health Care
+INCY  # Incyte — Health Care
+IR  # Ingersoll Rand — Industrials
+INGM  # Ingram Micro — Information Technology
+INGR  # Ingredion — Consumer Staples
+INSM  # Insmed — Health Care
+INSP  # Inspire Medical Systems — Health Care
+PODD  # Insulet — Health Care
+INTC  # Intel — Information Technology
+IBKR  # Interactive Brokers — Financials
+ICE  # Intercontinental Exchange — Financials
+IFF  # International Flavors & Fragrances — Materials
+IP  # International Paper — Materials
+INTU  # Intuit — Information Technology
+ISRG  # Intuitive Surgical — Health Care
+IVZ  # Invesco — Financials
+INVH  # Invitation Homes — Real Estate
+IONS  # Ionis Pharmaceuticals — Health Care
+IPGP  # IPG Photonics — Information Technology
+IQV  # IQVIA — Health Care
+IRDM  # Iridium Communications — Communication Services
+IRM  # Iron Mountain — Real Estate
+ITT  # ITT Inc. — Industrials
+JBL  # Jabil — Information Technology
+J  # Jacobs Solutions — Industrials
+JHX  # James Hardie Industries — Materials
+JHG  # Janus Henderson — Financials
+JAZZ  # Jazz Pharmaceuticals — Health Care
+JBHT  # J. B. Hunt — Industrials
+JEF  # Jefferies Financial Group — Financials
+JNJ  # Johnson & Johnson — Health Care
+JCI  # Johnson Controls — Industrials
+JLL  # Jones Lang LaSalle — Real Estate
+JPM  # JPMorgan Chase — Financials
+KRMN  # Karman Holdings — Industrials
+KBR  # KBR, Inc. — Industrials
+KMPR  # Kemper Corporation — Financials
+KVUE  # Kenvue — Consumer Staples
+KDP  # Keurig Dr Pepper — Consumer Staples
+KEY  # Keycorp — Financials
+KEYS  # Keysight — Information Technology
+KRC  # Kilroy Realty — Real Estate
+KMB  # Kimberly-Clark — Consumer Staples
+KIM  # Kimco Realty — Real Estate
+KMI  # Kinder Morgan — Energy
+KNSL  # Kinsale Capital Group — Financials
+KEX  # Kirby Corporation — Industrials
+KKR  # KKR & Co. Inc. — Financials
+KLAC  # KLA Corporation — Information Technology
+KNX  # Knight-Swift — Industrials
+KHC  # Kraft Heinz — Consumer Staples
+KR  # Kroger — Consumer Staples
+KD  # Kyndryl — Information Technology
+LHX  # L3Harris — Industrials
+LH  # Labcorp — Health Care
+LRCX  # Lam Research — Information Technology
+LAMR  # Lamar Advertising — Real Estate
+LW  # Lamb Weston — Consumer Staples
+LSTR  # Landstar — Industrials
+LVS  # Las Vegas Sands — Consumer Discretionary
+LSCC  # Lattice Semiconductor — Information Technology
+LAZ  # Lazard — Financials
+LEA  # Lear Corporation — Consumer Discretionary
+LDOS  # Leidos — Industrials
+LEN  # Lennar (Class A) — Consumer Discretionary
+LEN-B  # Lennar (Class B) — Consumer Discretionary
+LII  # Lennox International — Industrials
+DRS  # Leonardo DRS — Industrials
+LBRDA  # Liberty Broadband (Series A) — Communication Services
+LBRDK  # Liberty Broadband (Series C) — Communication Services
+LBTYA  # Liberty Global (Series A) — Communication Services
+LBTYK  # Liberty Global (Series C) — Communication Services
+FWONA  # Liberty Formula 1 (Series A) — Communication Services
+FWONK  # Liberty Formula 1 (Series C) — Communication Services
+LLYVA  # Liberty Live (Series A) — Communication Services
+LLYVK  # Liberty Live (Series C) — Communication Services
+LLY  # Lilly (Eli) — Health Care
+LECO  # Lincoln Electric — Industrials
+LNC  # Lincoln Financial — Financials
+LIN  # Linde plc — Materials
+LINE  # Lineage, Inc. — Real Estate
+LAD  # Lithia Motors — Consumer Discretionary
+LFUS  # Littelfuse — Information Technology
+LYV  # Live Nation Entertainment — Communication Services
+LKQ  # LKQ Corporation — Consumer Discretionary
+LOAR  # Loar Holdings — Industrials
+LMT  # Lockheed Martin — Industrials
+L  # Loews Corporation — Financials
+LPX  # Louisiana-Pacific — Materials
+LOW  # Lowe's — Consumer Discretionary
+LPLA  # LPL Financial — Financials
+LCID  # Lucid Motors — Consumer Discretionary
+LULU  # Lululemon Athletica — Consumer Discretionary
+LITE  # Lumentum — Information Technology
+LYFT  # Lyft — Industrials
+LYB  # LyondellBasell — Materials
+MTB  # M&T Bank — Financials
+MTSI  # MACOM Technology Solutions — Information Technology
+M  # Macy's, Inc. — Consumer Discretionary
+MSGS  # Madison Square Garden Sports — Communication Services
+MANH  # Manhattan Associates — Information Technology
+MAN  # ManpowerGroup — Industrials
+CART  # Maplebear Inc. — Consumer Staples
+MPC  # Marathon Petroleum — Energy
+MKL  # Markel — Financials
+MKTX  # MarketAxess — Financials
+MAR  # Marriott International — Consumer Discretionary
+MRSH  # Marsh McLennan — Financials
+MLM  # Martin Marietta Materials — Materials
+MRVL  # Marvell Technology — Information Technology
+MAS  # Masco — Industrials
+MASI  # Masimo — Health Care
+MTZ  # MasTec — Industrials
+MA  # Mastercard — Financials
+MTDR  # Matador Resources — Energy
+MTCH  # Match Group — Communication Services
+MAT  # Mattel — Consumer Discretionary
+MKC  # McCormick & Company — Consumer Staples
+MCD  # McDonald's — Consumer Discretionary
+MCK  # McKesson Corporation — Health Care
+MDU  # MDU Resources — Utilities
+MPT  # Medical Properties Trust — Real Estate
+MDLN  # Medline Inc. — Health Care
+MEDP  # Medpace — Health Care
+MDT  # Medtronic — Health Care
+MRK  # Merck & Co. — Health Care
+META  # Meta Platforms — Communication Services
+MET  # Metlife — Financials
+MTD  # Mettler Toledo — Health Care
+MTG  # MGIC Investment Corporation — Financials
+MGM  # MGM Resorts International — Consumer Discretionary
+MCHP  # Microchip Technology — Information Technology
+MU  # Micron Technology — Information Technology
+MSFT  # Microsoft — Information Technology
+MSTR  # MicroStrategy — Information Technology
+MAA  # Mid-America Apartment Communities — Real Estate
+MIDD  # Middleby — Industrials
+TIGO  # Millicom — Communication Services
+MRP  # Millrose Properties — Consumer Discretionary
+MKSI  # MKS Instruments — Information Technology
+MRNA  # Moderna — Health Care
+MHK  # Mohawk Industries — Consumer Discretionary
+MOH  # Molina Healthcare — Health Care
+TAP  # Molson Coors — Consumer Staples
+MDLZ  # Mondelez International — Consumer Staples
+MDB  # MongoDB Inc. — Information Technology
+MPWR  # Monolithic Power Systems — Information Technology
+MNST  # Monster Beverage — Consumer Staples
+MCO  # Moody's Corporation — Financials
+MS  # Morgan Stanley — Financials
+MORN  # Morningstar, Inc. — Financials
+MOS  # Mosaic Company (The) — Materials
+MSI  # Motorola Solutions — Information Technology
+MP  # MP Materials — Materials
+MSA  # MSA Safety — Industrials
+MSM  # MSC Industrial Direct — Industrials
+MSCI  # MSCI — Financials
+MLI  # Mueller Industries — Industrials
+MUSA  # Murphy USA — Consumer Discretionary
+NDAQ  # Nasdaq, Inc. — Financials
+NTRA  # Natera — Health Care
+NFG  # National Fuel Gas — Utilities
+NSA  # National Storage Affiliates — Real Estate
+NCNO  # nCino — Information Technology
+NTAP  # Netapp — Information Technology
+NFLX  # Netflix — Communication Services
+NBIX  # Neurocrine Biosciences — Health Care
+NYT  # New York Times Company — Communication Services
+NWL  # Newell Brands — Consumer Discretionary
+NEU  # NewMarket — Materials
+NEM  # Newmont — Materials
+NWSA  # News Corp (Class A) — Communication Services
+NWS  # News Corp (Class B) — Communication Services
+NXST  # Nexstar Media Group — Communication Services
+NEE  # NextEra Energy — Utilities
+NIQ  # NIQ Global Intelligence — Communication Services
+NKE  # Nike, Inc. — Consumer Discretionary
+NI  # NiSource — Utilities
+NNN  # NNN Reit — Real Estate
+NDSN  # Nordson — Industrials
+NSC  # Norfolk Southern — Industrials
+NTRS  # Northern Trust — Financials
+NOC  # Northrop Grumman — Industrials
+NCLH  # Norwegian Cruise Line Holdings — Consumer Discretionary
+NOV  # NOV Inc. — Energy
+NRG  # NRG Energy — Utilities
+NU  # Nubank — Financials
+NUE  # Nucor — Materials
+NTNX  # Nutanix — Information Technology
+NVT  # nVent Electric — Industrials
+NVDA  # Nvidia — Information Technology
+NVR  # NVR, Inc. — Consumer Discretionary
+ORLY  # O'Reilly Auto Parts — Consumer Discretionary
+OXY  # Occidental Petroleum — Energy
+OGE  # OGE Energy — Utilities
+OKTA  # Okta, Inc. — Information Technology
+ODFL  # Old Dominion Freight Line — Industrials
+ORI  # Old Republic International — Financials
+OLN  # Olin Corporation — Materials
+OLLI  # Ollie's Bargain Outlet — Consumer Discretionary
+OHI  # Omega Healthcare Investors — Real Estate
+OMC  # Omnicom Group — Communication Services
+ONON  # On Holding AG — Consumer Discretionary
+ON  # ON Semiconductor — Information Technology
+OMF  # OneMain Financial — Financials
+OKE  # Oneok — Energy
+ONTO  # Onto Innovation — Information Technology
+ORCL  # Oracle Corporation — Information Technology
+OGN  # Organon & Co. — Health Care
+OSK  # Oshkosh Corporation — Industrials
+OTIS  # Otis Worldwide — Industrials
+OVV  # Ovintiv — Energy
+OC  # Owens Corning — Industrials
+PCAR  # Paccar — Industrials
+PKG  # Packaging Corporation of America — Materials
+PLTR  # Palantir Technologies — Information Technology
+PANW  # Palo Alto Networks — Information Technology
+PK  # Park Hotels & Resorts — Real Estate
+PH  # Parker Hannifin — Industrials
+PSN  # Parsons Corporation — Industrials
+PAYX  # Paychex — Industrials
+PAYC  # Paycom — Information Technology
+PCTY  # Paylocity — Information Technology
+PYPL  # PayPal — Financials
+PEGA  # Pegasystems — Information Technology
+PENN  # Penn Entertainment — Consumer Discretionary
+PAG  # Penske Automotive Group — Consumer Discretionary
+PNR  # Pentair — Industrials
+PEN  # Penumbra, Inc. — Health Care
+PPLI  # People Inc. — Communication Services
+PEP  # PepsiCo — Consumer Staples
+PFGC  # Performance Food Group — Consumer Staples
+PR  # Permian Resources — Energy
+PRGO  # Perrigo — Health Care
+PFE  # Pfizer — Health Care
+PCG  # PG&E Corporation — Utilities
+PM  # Philip Morris International — Consumer Staples
+PSX  # Phillips 66 — Energy
+PPC  # Pilgrim's Pride — Consumer Staples
+PNFP  # Pinnacle Financial Partners — Financials
+PNW  # Pinnacle West Capital — Utilities
+PINS  # Pinterest — Communication Services
+PLNT  # Planet Fitness — Consumer Discretionary
+PNC  # PNC Financial Services — Financials
+POOL  # Pool Corporation — Consumer Discretionary
+BPOP  # Popular, Inc. — Financials
+POST  # Post Holdings — Consumer Staples
+PPG  # PPG Industries — Materials
+PPL  # PPL Corporation — Utilities
+TROW  # T. Rowe Price — Financials
+PRI  # Primerica — Financials
+PRMB  # Primo Brands — Consumer Staples
+PFG  # Principal Financial Group — Financials
+PCOR  # Procore — Information Technology
+PG  # Procter & Gamble — Consumer Staples
+PGR  # Progressive Corporation — Financials
+PLD  # Prologis — Real Estate
+PB  # Prosperity Bancshares — Financials
+PRU  # Prudential Financial — Financials
+PTC  # PTC Inc. — Information Technology
+PSA  # Public Storage — Real Estate
+PEG  # Public Service Enterprise Group — Utilities
+PHM  # PulteGroup — Consumer Discretionary
+PVH  # PVH Corp. — Consumer Discretionary
+QGEN  # Qiagen — Health Care
+Q  # Qnity Electronics — Information Technology
+QRVO  # Qorvo — Information Technology
+QCOM  # Qualcomm — Information Technology
+PWR  # Quanta Services — Industrials
+QS  # QuantumScape — Consumer Discretionary
+DGX  # Quest Diagnostics — Health Care
+QXO  # QXO, Inc. — Industrials
+RAL  # Ralliant — Information Technology
+RL  # Ralph Lauren Corporation — Consumer Discretionary
+RRC  # Range Resources — Energy
+RJF  # Raymond James Financial — Financials
+RYN  # Rayonier — Real Estate
+RBA  # RB Global — Industrials
+RBC  # RBC Bearings — Industrials
+O  # Realty Income — Real Estate
+RDDT  # Reddit — Communication Services
+RRX  # Regal Rexnord — Industrials
+REG  # Regency Centers — Real Estate
+REGN  # Regeneron Pharmaceuticals — Health Care
+RF  # Regions Financial Corporation — Financials
+RGA  # Reinsurance Group of America — Financials
+RS  # Reliance, Inc. — Materials
+RNR  # RenaissanceRe — Financials
+RGEN  # Repligen — Health Care
+RSG  # Republic Services — Industrials
+RMD  # Resmed — Health Care
+QSR  # Restaurant Brands International — Consumer Discretionary
+RVMD  # Revolution Medicines — Health Care
+RVTY  # Revvity — Health Care
+REXR  # Rexford Industrial — Real Estate
+REYN  # Reynolds Consumer Products — Consumer Staples
+RH  # RH — Consumer Discretionary
+RNG  # RingCentral — Information Technology
+RITM  # Rithm Capital — Financials
+RIVN  # Rivian — Consumer Discretionary
+RLI  # RLI Corp. — Financials
+RHI  # Robert Half — Industrials
+HOOD  # Robinhood Markets — Financials
+RBLX  # Roblox Corporation — Communication Services
+RKT  # Rocket Companies — Financials
+RKLB  # Rocket Lab — Industrials
+ROK  # Rockwell Automation — Industrials
+ROIV  # Roivant Sciences — Health Care
+ROKU  # Roku, Inc. — Communication Services
+ROL  # Rollins, Inc. — Industrials
+ROP  # Roper Technologies — Industrials
+ROST  # Ross Stores — Consumer Discretionary
+RCL  # Royal Caribbean Group — Consumer Discretionary
+RGLD  # Royal Gold — Materials
+RPRX  # Royalty Pharma — Health Care
+RPM  # RPM International — Materials
+RTX  # RTX Corporation — Industrials
+RBRK  # Rubrik — Information Technology
+RYAN  # Ryan Specialty — Financials
+R  # Ryder — Industrials
+SPGI  # S&P Global — Financials
+SAIA  # Saia — Industrials
+SAIL  # SailPoint — Information Technology
+SAIC  # SAIC — Industrials
+CRM  # Salesforce — Information Technology
+SLM  # Sallie Mae — Financials
+IOT  # Samsara — Information Technology
+SNDK  # SanDisk — Information Technology
+SRPT  # Sarepta Therapeutics — Health Care
+SBAC  # SBA Communications — Real Estate
+HSIC  # Schein (Henry) — Health Care
+SLB  # Schlumberger — Energy
+SNDR  # Schneider National — Industrials
+SMG  # Scotts Miracle-Gro Company — Materials
+SEB  # Seaboard Corporation — Consumer Staples
+SEIC  # SEI Investments Company — Financials
+SRE  # Sempra — Utilities
+ST  # Sensata Technologies — Industrials
+S  # SentinelOne — Information Technology
+SCI  # Service Corporation International — Consumer Discretionary
+NOW  # ServiceNow — Information Technology
+SN  # SharkNinja — Consumer Discretionary
+SHW  # Sherwin-Williams — Materials
+FOUR  # Shift4 — Information Technology
+SLGN  # Silgan Holdings — Materials
+SPG  # Simon Property Group — Real Estate
+SSD  # Simpson Manufacturing Company — Industrials
+SIRI  # Sirius XM — Communication Services
+SITE  # SiteOne Landscape Supply — Industrials
+SWKS  # Skyworks Solutions — Information Technology
+SFD  # Smithfield Foods — Consumer Staples
+SJM  # J.M. Smucker Company (The) — Consumer Staples
+SW  # Smurfit Westrock — Materials
+SNA  # Snap-on — Industrials
+SNOW  # Snowflake Inc. — Information Technology
+SOFI  # SoFi — Financials
+SOLS  # Solstice Advanced Materials — Materials
+SOLV  # Solventum — Health Care
+SGI  # Somnigroup International — Consumer Discretionary
+SON  # Sonoco — Materials
+SHC  # Sotera Health — Health Care
+SO  # Southern Company — Utilities
+SCCO  # Southern Copper — Materials
+SSB  # SouthState Corporation — Financials
+LUV  # Southwest Airlines — Industrials
+SPOT  # Spotify — Communication Services
+SFM  # Sprouts Farmers Market — Consumer Staples
+SSNC  # SS&C Technologies — Information Technology
+STAG  # STAG Industrial — Real Estate
+SARO  # StandardAero — Industrials
+SWK  # Stanley Black & Decker — Industrials
+SBUX  # Starbucks — Consumer Discretionary
+STWD  # Starwood Property Trust — Financials
+STT  # State Street Corporation — Financials
+STLD  # Steel Dynamics — Materials
+STE  # Steris — Health Care
+SF  # Stifel — Financials
+SYK  # Stryker Corporation — Health Care
+SMMT  # Summit Therapeutics — Health Care
+SUI  # Sun Communities — Real Estate
+SMCI  # Supermicro — Information Technology
+SYF  # Synchrony Financial — Financials
+SNPS  # Synopsys — Information Technology
+SYY  # Sysco — Consumer Staples
+TMUS  # T-Mobile US — Communication Services
+TTWO  # Take-Two Interactive — Communication Services
+TLN  # Talen Energy — Utilities
+TPR  # Tapestry, Inc. — Consumer Discretionary
+TRGP  # Targa Resources — Energy
+TGT  # Target Corporation — Consumer Staples
+SNX  # TD Synnex — Information Technology
+FTI  # TechnipFMC — Energy
+TDY  # Teledyne Technologies — Industrials
+TFX  # Teleflex — Health Care
+TEM  # Tempus AI — Health Care
+THC  # Tenet Healthcare — Health Care
+TDC  # Teradata — Information Technology
+TER  # Teradyne — Information Technology
+TSLA  # Tesla, Inc. — Consumer Discretionary
+TTEK  # Tetra Tech — Industrials
+TXN  # Texas Instruments — Information Technology
+TPL  # Texas Pacific Land Corporation — Energy
+TXRH  # Texas Roadhouse — Consumer Discretionary
+TXT  # Textron — Industrials
+TMO  # Thermo Fisher Scientific — Health Care
+TFSL  # Third Federal S&L — Financials
+THO  # Thor Industries — Consumer Discretionary
+TKR  # Timken Company — Industrials
+TJX  # TJX Companies — Consumer Discretionary
+TKO  # TKO Group Holdings — Communication Services
+TOST  # Toast, Inc. — Information Technology
+TOL  # Toll Brothers — Consumer Discretionary
+BLD  # TopBuild — Consumer Discretionary
+TTC  # Toro Company (The) — Industrials
+TPG  # TPG Inc. — Financials
+TSCO  # Tractor Supply Company — Consumer Discretionary
+TTD  # Trade Desk (The) — Communication Services
+TW  # Tradeweb — Financials
+TT  # Trane Technologies — Industrials
+TDG  # TransDigm Group — Industrials
+TRU  # TransUnion — Industrials
+TNL  # Travel + Leisure Co. — Consumer Discretionary
+TRV  # Travelers Companies (The) — Financials
+TREX  # Trex Company, Inc. — Industrials
+TRMB  # Trimble Inc. — Information Technology
+TFC  # Truist Financial — Financials
+DJT  # Trump Media & Technology Group — Communication Services
+TWLO  # Twilio — Information Technology
+TYL  # Tyler Technologies — Information Technology
+TSN  # Tyson Foods — Consumer Staples
+UHAL  # U-Haul — Industrials
+UHAL-B  # U-Haul (Series N) — Industrials
+USB  # U.S. Bancorp — Financials
+UBER  # Uber — Industrials
+UI  # Ubiquiti — Information Technology
+UDR  # UDR, Inc. — Real Estate
+UGI  # UGI Corporation — Utilities
+PATH  # UiPath — Information Technology
+ULTA  # Ulta Beauty — Consumer Discretionary
+RARE  # Ultragenyx — Health Care
+UAA  # Under Armour (Class A) — Consumer Discretionary
+UA  # Under Armour (Class C) — Consumer Discretionary
+UNP  # Union Pacific Corporation — Industrials
+UAL  # United Airlines Holdings — Industrials
+UPS  # United Parcel Service — Industrials
+URI  # United Rentals — Industrials
+UTHR  # United Therapeutics — Health Care
+UWMC  # United Wholesale Mortgage — Financials
+UNH  # UnitedHealth Group — Health Care
+U  # Unity Technologies — Information Technology
+OLED  # Universal Display Corporation — Information Technology
+UHS  # Universal Health Services — Health Care
+UNM  # Unum — Financials
+USFD  # US Foods — Consumer Staples
+MTN  # Vail Resorts — Consumer Discretionary
+VLO  # Valero Energy — Energy
+VMI  # Valmont Industries — Industrials
+VVV  # Valvoline — Materials
+VEEV  # Veeva Systems — Health Care
+VTR  # Ventas, Inc. — Real Estate
+VLTO  # Veralto — Industrials
+VRSN  # Verisign — Information Technology
+VRSK  # Verisk Analytics — Industrials
+VZ  # Verizon — Communication Services
+VSNT  # Versant — Communication Services
+VGNT  # Versigent — Consumer Discretionary
+VRTX  # Vertex Pharmaceuticals — Health Care
+VRT  # Vertiv — Industrials
+VFC  # VF Corporation — Consumer Discretionary
+VTRS  # Viatris — Health Care
+VICI  # Vici Properties — Real Estate
+VIK  # Viking Holdings — Consumer Discretionary
+VKTX  # Viking Therapeutics — Health Care
+VNOM  # Viper Energy — Energy
+VIRT  # Virtu Financial — Financials
+V  # Visa Inc. — Financials
+VST  # Vistra Corp. — Utilities
+VNT  # Vontier — Information Technology
+VNO  # Vornado Realty Trust — Real Estate
+VOYA  # Voya Financial — Financials
+VMC  # Vulcan Materials — Materials
+WPC  # W. P. Carey — Real Estate
+WRB  # W. R. Berkley Corporation — Financials
+GWW  # W. W. Grainger — Industrials
+WAB  # Wabtec — Industrials
+WMT  # Walmart — Consumer Staples
+DIS  # Walt Disney Company (The) — Communication Services
+WBD  # Warner Bros. Discovery — Communication Services
+WM  # Waste Management, Inc. — Industrials
+WAT  # Waters Corporation — Health Care
+WSO  # Watsco — Industrials
+W  # Wayfair — Consumer Discretionary
+WFRD  # Weatherford International — Energy
+WBS  # Webster Bank — Financials
+WEC  # WEC Energy Group — Utilities
+WFC  # Wells Fargo — Financials
+WELL  # Welltower — Real Estate
+WEN  # Wendy's Company (The) — Consumer Discretionary
+WCC  # Wesco International — Industrials
+WST  # West Pharmaceutical Services — Health Care
+WAL  # Western Alliance Bancorporation — Financials
+WDC  # Western Digital — Information Technology
+WU  # Western Union — Information Technology
+WLK  # Westlake Corporation — Materials
+WEX  # WEX Inc. — Financials
+WY  # Weyerhaeuser — Real Estate
+WHR  # Whirlpool Corporation — Consumer Discretionary
+WTM  # White Mountains Insurance Group — Financials
+WMB  # Williams Companies — Energy
+WSM  # Williams-Sonoma, Inc. — Consumer Discretionary
+WTW  # Willis Towers Watson — Financials
+WSC  # WillScot Mobile Mini — Industrials
+WING  # Wingstop — Consumer Discretionary
+WTFC  # Wintrust Financial — Financials
+WWD  # Woodward, Inc. — Industrials
+WDAY  # Workday, Inc. — Information Technology
+WH  # Wyndham Hotels & Resorts — Consumer Discretionary
+WYNN  # Wynn Resorts — Consumer Discretionary
+XEL  # Xcel Energy — Utilities
+XP  # XP Inc. — Financials
+XPO  # XPO, Inc. — Industrials
+XYL  # Xylem Inc. — Industrials
+YETI  # Yeti Holdings — Consumer Discretionary
+YUM  # Yum! Brands — Consumer Discretionary
+ZBRA  # Zebra Technologies — Information Technology
+ZG  # Zillow (Class A) — Real Estate
+Z  # Zillow (Class C) — Real Estate
+ZBH  # Zimmer Biomet — Health Care
+ZION  # Zions Bancorporation — Financials
+ZTS  # Zoetis — Health Care
+ZM  # Zoom Communications — Information Technology
+GTM  # ZoomInfo — Communication Services
+ZS  # Zscaler — Information Technology
