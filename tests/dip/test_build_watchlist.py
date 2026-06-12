@@ -32,9 +32,9 @@ def test_parse_wikipedia_raises_when_no_constituents_table():
 
 def test_render_watchlist_format():
     holdings = [("AAPL", "APPLE INC", "Information Technology"), ("BRK-B", "BERKSHIRE HATHAWAY INC CL B", "Financials")]
-    content = render_watchlist(holdings, source_url="https://example.com/iwb.csv", fetched_at="2026-06-12")
+    content = render_watchlist(holdings, source_url="https://example.com/russell1000", fetched_at="2026-06-12")
     assert content.startswith("#")  # header comment block
-    assert "https://example.com/iwb.csv" in content
+    assert "https://example.com/russell1000" in content
     assert "2026-06-12" in content
     assert "2 tickers" in content
     assert "scripts/build_watchlist.py" in content  # regeneration hint

@@ -12,7 +12,7 @@ DEFAULT_MAX_CANDIDATES = 10
 def load_watchlist(path: str) -> list[str]:
     """Read tickers from a plain-text watchlist: one per line, # comments, blanks ignored, deduped, uppercased."""
     tickers: list[str] = []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             ticker = line.split("#", 1)[0].strip().upper()
             if ticker and ticker not in tickers:

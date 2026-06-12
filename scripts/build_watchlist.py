@@ -94,7 +94,7 @@ def main():
     parser.add_argument("--output", type=str, default="watchlist.txt", help="Output path (default: watchlist.txt)")
     args = parser.parse_args()
 
-    print(f"Downloading Russell 1000 components from Wikipedia...")
+    print(f"Downloading Russell 1000 constituents from {WIKIPEDIA_URL}...")
     html = download_page(WIKIPEDIA_URL)
     holdings = parse_wikipedia_constituents(html)
     if len(holdings) < MIN_TICKERS:

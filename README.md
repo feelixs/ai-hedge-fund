@@ -136,7 +136,7 @@ The dip scanner flags sharp, stock-specific single-day drops and uses Claude Cod
 
 #### Setup
 
-Add one ticker per line to `watchlist.txt` (lines starting with `#` are treated as comments).
+`watchlist.txt` is generated as the Russell 1000 by running `poetry run python scripts/build_watchlist.py` (re-run a few times a year after index reconstitution). Hand-edits survive but are discarded on regeneration, so prefer a custom list: `poetry run python scripts/build_watchlist.py --output mylist.txt` and then `./dip.sh --watchlist mylist.txt`.
 
 #### Run the Dip Scanner
 
