@@ -25,6 +25,7 @@ PRICE_LOOKBACK_CALENDAR_DAYS = 45  # enough for 20 trading-day volume/high stats
 HEADLINE_LOOKBACK_DAYS = 7
 MARKET_BENCHMARK = "SPY"
 MAX_JUDGE_WORKERS = 10  # judge_all self-defends even if a caller bypasses detect_dips' cap
+MAX_FETCH_WORKERS = 8  # modest on purpose: yfinance throttles aggressive parallelism
 
 _ACTION_RANK = {"buy_dip": 0, "wait_for_confirmation": 1, "avoid": 2}
 
@@ -113,18 +114,24 @@ def save_results(ranked: list[JudgedDip], report: str, scans_root: str | None = 
 
 
 def fetch_price_dfs(tickers: list[str], start_date: str, end_date: str, api_key: str | None) -> dict[str, pd.DataFrame]:
-    """Fetch daily candles per ticker; warn-and-skip tickers with no data (a dead ticker must not kill the scan)."""
-    dfs: dict[str, pd.DataFrame] = {}
-    for ticker in tickers:
+    """Fetch daily candles per ticker in a small thread pool; warn-and-skip tickers with no data (a dead ticker must not kill the scan)."""
+
+    def fetch_one(ticker: str) -> tuple[str, pd.DataFrame | None]:
         try:
             prices = get_prices(ticker, start_date, end_date, api_key, interval="day", interval_multiplier=1)
         except Exception as e:  # noqa: BLE001 - one bad ticker must not kill the scan; named in output
             print(f"[dip] price fetch failed for {ticker}: {e}")
-            continue
+            return ticker, None
         if not prices:
             print(f"[dip] no price data for {ticker}, skipping")
-            continue
-        dfs[ticker] = prices_to_df(prices)
+            return ticker, None
+        return ticker, prices_to_df(prices)
+
+    dfs: dict[str, pd.DataFrame] = {}
+    with ThreadPoolExecutor(max_workers=MAX_FETCH_WORKERS) as pool:
+        for ticker, df in pool.map(fetch_one, tickers):
+            if df is not None:
+                dfs[ticker] = df
     return dfs
 
 
