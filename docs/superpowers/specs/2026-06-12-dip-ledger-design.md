@@ -14,9 +14,11 @@ buy-the-dip opportunity.
 ## Decisions (agreed with user)
 
 1. Every `/judge-dips` verdict is persisted to a local ledger.
-2. Outcomes are scored **against the dispatch-ta EOW consensus target**.
-   Fallback when the consensus is not validated (or dispatch-ta failed for
-   the ticker): score against the dip-day price +3%.
+2. Outcomes are scored **against the dispatch-ta EOW consensus target**,
+   and only against it. When the consensus is not validated (or dispatch-ta
+   failed for the ticker), the record is not scored — it gets stamped
+   `skipped_no_consensus` once its EOW date passes, so it is excluded
+   explicitly rather than re-checked forever.
 3. `/judge-dips` **auto-chains** into the `dispatch-ta` flow for all dipped
    tickers, so every verdict gets an EOW target on record.
 4. Mechanical work (append, link, score) lives in a new `src/dip/ledger.py`
@@ -69,20 +71,22 @@ One JSON object per line, appended per verdict:
 - **`link-ta --date YYYY-MM-DD`** — for each unlinked record judged on that
   date, look for `analysis/<date>/<TICKER>_ta_consensus.json`; if present,
   fill the `ta` block. Missing consensus (FAILED ticker in dispatch-ta) →
-  leave `ta` null and print a warning; the record stays scoreable via the
-  fallback.
+  leave `ta` null and print a warning; the record will be stamped
+  `skipped_no_consensus` by `score` once its EOW date passes.
 - **`score`** — find records with `outcome == null` whose EOW date has
   passed. EOW date = `ta.eow_date`, or (if `ta` is null) the Friday of the
   judged week via the same `compute_eow_date` logic as
-  `src/tools/dump_prices.py`. Fetch closes via `src.tools.api.get_prices`;
-  `eow_close` = close on the EOW date, or the last close before it (holiday).
-  Scoring rules:
-  - **basis** = `consensus_target` if `ta.validated` and the target is
-    non-null; else `dip_price_fallback` = `dip.last_price * 1.03`.
-  - action `wait_for_confirmation` / `avoid`: `eow_close >= basis` →
-    `dip_opportunity_missed`; else `good_call`.
-  - action `buy_dip`: `eow_close >= basis` → `good_call`;
-    `eow_close <= dip.last_price * 0.97` → `bad_call`; else `inconclusive`.
+  `src/tools/dump_prices.py`. Scoring rules:
+  - Records without a usable target (`ta` null, `validated` false, or
+    `consensus_target` null) → stamp `label: "skipped_no_consensus"`
+    (`basis`/`eow_close` null). No price fetch, no fallback scoring.
+  - Otherwise fetch closes via `src.tools.api.get_prices`; `eow_close` =
+    close on the EOW date, or the last close before it (holiday), and
+    **basis** = `consensus_target`:
+    - action `wait_for_confirmation` / `avoid`: `eow_close >= basis` →
+      `dip_opportunity_missed`; else `good_call`.
+    - action `buy_dip`: `eow_close >= basis` → `good_call`;
+      `eow_close <= dip.last_price * 0.97` → `bad_call`; else `inconclusive`.
   - Rewrite the file atomically (write temp, rename). Print newly scored
     records as JSON for the skill to report.
 - **`history --ticker X [--limit N]`** — print that ticker's past records
@@ -123,8 +127,9 @@ the ledger links to those files by path.
 - record: append + field validation + ticker uppercasing.
 - link-ta: fills `ta` from a consensus file; warns and skips when missing.
 - score: each rule branch (missed / good_call / bad_call / inconclusive),
-  fallback basis when consensus not validated or `ta` null, holiday EOW
-  close (last close before the date), atomic rewrite, corrupt-line error.
+  `skipped_no_consensus` stamping when `ta` is null / not validated /
+  target null (and that no price fetch happens), holiday EOW close (last
+  close before the date), atomic rewrite, corrupt-line error.
 
 ## Out of scope
 
