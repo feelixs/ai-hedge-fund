@@ -130,7 +130,22 @@ def _eow_close(ticker: str, eow_date: str, fetch) -> float | None:
     """Close on the EOW date, or the last close before it (market holiday); None if the window has no candles."""
     start = (date.fromisoformat(eow_date) - timedelta(days=10)).isoformat()
     candles = [p for p in fetch(ticker, start, eow_date) if p.time[:10] <= eow_date]
-    return candles[-1].close if candles else None
+    return max(candles, key=lambda p: p.time).close if candles else None
+
+
+def _ta_problem(ta: dict) -> str | None:
+    """Describe what is malformed about a record's ``ta`` block (LLM-written, so untrusted), or None if usable by ``score``."""
+    eow_date = ta.get("eow_date")
+    if not isinstance(eow_date, str):
+        return f"eow_date must be an ISO date string, got {eow_date!r}"
+    try:
+        date.fromisoformat(eow_date)
+    except ValueError:
+        return f"eow_date is not a parseable ISO date: {eow_date!r}"
+    target = ta.get("consensus_target")
+    if ta.get("validated") and target is not None and (not isinstance(target, (int, float)) or isinstance(target, bool)):
+        return f"consensus_target must be numeric, got {target!r}"
+    return None
 
 
 def score(path: str = DEFAULT_LEDGER_PATH, today: date | None = None, fetch=None) -> list[dict]:
@@ -138,8 +153,8 @@ def score(path: str = DEFAULT_LEDGER_PATH, today: date | None = None, fetch=None
 
     Matured means today is strictly after the record's EOW date. Records
     without a usable consensus target are stamped ``skipped_no_consensus``
-    without any price fetch. A failed price fetch leaves the record unscored
-    (warned on stderr) so the next run retries it.
+    without any price fetch. A malformed ``ta`` block or a failed price fetch
+    leaves the record unscored (warned on stderr) so the next run retries it.
     """
     today = today or date.today()
     fetch = fetch or get_prices
@@ -149,6 +164,11 @@ def score(path: str = DEFAULT_LEDGER_PATH, today: date | None = None, fetch=None
         if record.get("outcome") is not None:
             continue
         ta = record.get("ta")
+        if ta is not None:
+            problem = _ta_problem(ta)
+            if problem:
+                print(f"[ledger] {record['ticker']}: malformed ta block, leaving unscored: {problem}", file=sys.stderr)
+                continue
         eow_date = ta["eow_date"] if ta else compute_eow_date(date.fromisoformat(record["judged_at"][:10]))
         if today.isoformat() <= eow_date:
             continue

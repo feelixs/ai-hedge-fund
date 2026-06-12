@@ -169,3 +169,50 @@ def test_score_fetch_failure_leaves_record_unscored(tmp_path, capsys):
     assert ledger.score(path, today=date(2026, 6, 22), fetch=boom) == []
     assert ledger.load_records(path)[0]["outcome"] is None
     assert "leaving unscored" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda ta: ta.update({"eow_date": None}),
+        lambda ta: ta.pop("eow_date"),
+        lambda ta: ta.update({"consensus_target": "158.0"}),
+    ],
+    ids=["eow_date_null", "eow_date_missing", "consensus_target_string"],
+)
+def test_score_malformed_ta_warns_and_leaves_unscored(tmp_path, capsys, mutate):
+    path = str(tmp_path / "ledger.jsonl")
+    record = linked_record()
+    mutate(record["ta"])
+    append_raw(path, record)
+    def explode(ticker, start, end):
+        raise AssertionError("price fetch must not happen for malformed ta records")
+    assert ledger.score(path, today=date(2026, 6, 22), fetch=explode) == []
+    assert ledger.load_records(path)[0]["outcome"] is None
+    err = capsys.readouterr().err
+    assert "ADBE" in err and "malformed ta block" in err
+
+
+def test_score_handles_descending_candles(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    append_raw(path, linked_record(action="avoid"))
+    fetch = lambda ticker, start, end: [make_price("2026-06-19", 160.0), make_price("2026-06-17", 140.0)]  # newest first
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch)
+    assert scored[0]["outcome"]["eow_close"] == 160.0
+
+
+def test_score_boundary_equals_target_and_bad_call_threshold(tmp_path):
+    path = str(tmp_path / "buy_at_target.jsonl")
+    append_raw(path, linked_record(action="buy_dip", target=158.0, last_price=152.3))
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch_close(158.0))
+    assert scored[0]["outcome"]["label"] == "good_call"  # close exactly at target counts as reached
+
+    path = str(tmp_path / "buy_at_drop.jsonl")
+    append_raw(path, linked_record(action="buy_dip", target=110.0, last_price=100.0))
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch_close(97.0))
+    assert scored[0]["outcome"]["label"] == "bad_call"  # close exactly at dip price * BAD_CALL_DROP is a bad call
+
+    path = str(tmp_path / "avoid_at_target.jsonl")
+    append_raw(path, linked_record(action="avoid", target=158.0))
+    scored = ledger.score(path, today=date(2026, 6, 22), fetch=fetch_close(158.0))
+    assert scored[0]["outcome"]["label"] == "dip_opportunity_missed"  # close exactly at target counts as reached
