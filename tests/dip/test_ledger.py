@@ -66,3 +66,34 @@ def test_validate_rejects_bad_verdict_fields(tmp_path):
     bad_conf["verdict"]["confidence"] = 150
     with pytest.raises(ValueError, match="confidence"):
         ledger.append_record(bad_conf, str(tmp_path / "l.jsonl"))
+
+
+def write_consensus(analysis_root, date_str, ticker, validated=True, target=158.0):
+    day_dir = analysis_root / date_str
+    day_dir.mkdir(parents=True, exist_ok=True)
+    payload = {"ticker": ticker, "eow_date": "2026-06-19", "validated": validated, "consensus_target": target, "consensus_low": 150.0, "consensus_high": 164.0, "lens_targets": {}, "persona_decision": None, "reasoning": "test"}
+    (day_dir / f"{ticker}_ta_consensus.json").write_text(json.dumps(payload))
+
+
+def test_link_ta_fills_ta_block(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    analysis_root = tmp_path / "analysis"
+    ledger.append_record(make_record(ticker="ADBE"), path)
+    ledger.append_record(make_record(ticker="NVDA"), path)  # no consensus file for this one
+    write_consensus(analysis_root, "2026-06-12", "ADBE")
+    linked = ledger.link_ta("2026-06-12", path, analysis_root=str(analysis_root))
+    assert linked == ["ADBE"]
+    records = ledger.load_records(path)
+    adbe = next(r for r in records if r["ticker"] == "ADBE")
+    assert adbe["ta"]["consensus_target"] == 158.0 and adbe["ta"]["eow_date"] == "2026-06-19" and adbe["ta"]["validated"] is True
+    assert next(r for r in records if r["ticker"] == "NVDA")["ta"] is None
+    assert "NVDA" in capsys.readouterr().err  # missing consensus warned, not silent
+
+
+def test_link_ta_skips_other_dates_and_already_linked(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    analysis_root = tmp_path / "analysis"
+    ledger.append_record(make_record(ticker="ADBE", judged_at="2026-06-11T10:00:00"), path)  # different day
+    write_consensus(analysis_root, "2026-06-12", "ADBE")
+    assert ledger.link_ta("2026-06-12", path, analysis_root=str(analysis_root)) == []
+    assert ledger.load_records(path)[0]["ta"] is None

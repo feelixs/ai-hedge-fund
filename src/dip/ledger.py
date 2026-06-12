@@ -83,3 +83,44 @@ def append_record(record: dict, path: str = DEFAULT_LEDGER_PATH) -> dict:
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
     return record
+
+
+def _rewrite(path: str, records: list[dict]) -> None:
+    """Atomically replace the ledger file (write temp, rename)."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    os.replace(tmp, path)
+
+
+def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:
+    """Fill the ``ta`` block of records judged on ``date_str`` from that day's ``<TICKER>_ta_consensus.json`` files; returns the linked tickers.
+
+    A record with no consensus file keeps ``ta=null`` (warned on stderr) and
+    will be stamped ``skipped_no_consensus`` by ``score`` once matured.
+    """
+    analysis_root = analysis_root or os.path.join(PROJECT_ROOT, "analysis")
+    records = load_records(path)
+    linked: list[str] = []
+    for record in records:
+        if record.get("ta") is not None or not record["judged_at"].startswith(date_str):
+            continue
+        consensus_path = os.path.join(analysis_root, date_str, f"{record['ticker']}_ta_consensus.json")
+        if not os.path.exists(consensus_path):
+            print(f"[ledger] {record['ticker']}: no consensus file at {consensus_path} — record will be skipped_no_consensus once matured", file=sys.stderr)
+            continue
+        with open(consensus_path, encoding="utf-8") as f:
+            consensus = json.load(f)
+        record["ta"] = {
+            "eow_date": consensus["eow_date"],
+            "validated": consensus["validated"],
+            "consensus_target": consensus["consensus_target"],
+            "consensus_low": consensus["consensus_low"],
+            "consensus_high": consensus["consensus_high"],
+            "consensus_path": os.path.relpath(consensus_path, PROJECT_ROOT),
+        }
+        linked.append(record["ticker"])
+    if linked:
+        _rewrite(path, records)
+    return linked
