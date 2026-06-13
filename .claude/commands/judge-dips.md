@@ -113,7 +113,10 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
 7. **Report.** One line per ticker: ticker → classification / action /
    confidence, plus the EOW consensus target where validated. Include step
    0's newly scored outcomes. Remind the user the scanner picks up answers
-   automatically (it is polling) — no Enter needed.
+   automatically (it is polling) — no Enter needed. Then add: "Tip: run
+   `/track-dips` to re-check your watched and held positions — entry
+   confirmations for the calls you waited on, and exit / stop-loss signals
+   for anything you have bought."
 
 ## Notes
 
