@@ -390,6 +390,24 @@ def test_open_position_rejects_double_buy(tmp_path):
         ledger.open_position("ADBE", "2026-06-12T12:01:33", 105.0, "2026-06-14T10:00:00", path)
 
 
+def test_open_position_rejects_already_sold(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    ledger.close_position("ADBE", "2026-06-12T12:01:33", 120.0, "2026-06-20T15:00:00", path)
+    with pytest.raises(ValueError, match="already sold"):
+        ledger.open_position("ADBE", "2026-06-12T12:01:33", 105.0, "2026-06-21T10:00:00", path)
+
+
+def test_dismissed_watch_can_be_reopened_as_holding(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.dismiss("ADBE", "2026-06-12T12:01:33", path)
+    assert ledger.list_open(path) == []  # dismissed -> not tracked
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    assert [r["ticker"] for r in ledger.list_open(path, kind="holding")] == ["ADBE"]  # now a holding (stale dismissed flag is inert)
+
+
 @pytest.mark.parametrize(
     "cost_basis,sold_price,expected_pnl",
     [
