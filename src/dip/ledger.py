@@ -163,6 +163,28 @@ def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str
     return record
 
 
+def close_position(ticker: str, judged_at: str, sold_price: float, sold_at: str, path: str = DEFAULT_LEDGER_PATH) -> dict:
+    """Record a sale; computes realized_pnl_pct vs cost_basis. ValueError if not held or already sold."""
+    if not isinstance(sold_price, (int, float)) or isinstance(sold_price, bool) or sold_price <= 0:
+        raise ValueError(f"sold_price must be a positive number, got {sold_price!r}")
+    try:
+        datetime.fromisoformat(sold_at)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"sold_at must be an ISO datetime string, got {sold_at!r}") from e
+    records = load_records(path)
+    record = _find_record(records, ticker, judged_at)
+    position = record.get("position")
+    if position is None:
+        raise ValueError(f"{record['ticker']} has no open position to close")
+    if record.get("exit") is not None:
+        raise ValueError(f"{record['ticker']} is already sold")
+    cost_basis = position["cost_basis"]
+    realized_pnl_pct = round((sold_price - cost_basis) / cost_basis * 100, 2)
+    record["exit"] = {"sold_price": sold_price, "sold_at": sold_at, "realized_pnl_pct": realized_pnl_pct}
+    _rewrite(path, records)
+    return record
+
+
 def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:
     """Fill the ``ta`` block of records judged on ``date_str`` from that day's ``<TICKER>_ta_consensus.json`` files; returns the linked tickers.
 

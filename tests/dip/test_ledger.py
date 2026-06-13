@@ -388,3 +388,41 @@ def test_open_position_rejects_double_buy(tmp_path):
     ledger.open_position("ADBE", "2026-06-12T12:01:33", 101.0, "2026-06-13T10:00:00", path)
     with pytest.raises(ValueError, match="already has a position"):
         ledger.open_position("ADBE", "2026-06-12T12:01:33", 105.0, "2026-06-14T10:00:00", path)
+
+
+@pytest.mark.parametrize(
+    "cost_basis,sold_price,expected_pnl",
+    [
+        (101.0, 118.0, 16.83),   # gain
+        (100.0, 90.0, -10.0),    # loss
+        (100.0, 100.0, 0.0),     # flat
+    ],
+)
+def test_close_position_computes_realized_pnl(tmp_path, cost_basis, sold_price, expected_pnl):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", cost_basis, "2026-06-13T10:00:00", path)
+    rec = ledger.close_position("ADBE", "2026-06-12T12:01:33", sold_price, "2026-06-20T15:00:00", path)
+    assert rec["exit"] == {"sold_price": sold_price, "sold_at": "2026-06-20T15:00:00", "realized_pnl_pct": expected_pnl}
+    assert ledger.load_records(path)[0]["exit"]["realized_pnl_pct"] == expected_pnl  # persisted
+
+
+def test_close_position_requires_open_and_rejects_double_sell(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    with pytest.raises(ValueError, match="no open position"):
+        ledger.close_position("ADBE", "2026-06-12T12:01:33", 110.0, "2026-06-20T15:00:00", path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    ledger.close_position("ADBE", "2026-06-12T12:01:33", 110.0, "2026-06-20T15:00:00", path)
+    with pytest.raises(ValueError, match="already sold"):
+        ledger.close_position("ADBE", "2026-06-12T12:01:33", 120.0, "2026-06-21T15:00:00", path)
+
+
+def test_close_position_rejects_bad_inputs(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    with pytest.raises(ValueError, match="sold_price"):
+        ledger.close_position("ADBE", "2026-06-12T12:01:33", 0, "2026-06-20T15:00:00", path)
+    with pytest.raises(ValueError, match="sold_at"):
+        ledger.close_position("ADBE", "2026-06-12T12:01:33", 110.0, "later", path)
