@@ -343,3 +343,18 @@ def test_find_record_rejects_bad_keys():
         ledger._find_record([], "ADBE", None)
     with pytest.raises(ValueError, match="judged_at"):
         ledger._find_record([], "ADBE", "  ")
+
+
+def test_list_open_rejects_bad_kind(tmp_path):
+    with pytest.raises(ValueError, match="kind"):
+        ledger.list_open(str(tmp_path / "l.jsonl"), kind="sold")
+
+
+def test_list_open_finds_bare_buy_candidate(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="WAIT", action="wait_for_confirmation"), path)
+    ledger.append_record(make_record(ticker="AVOID", action="avoid"), path)  # not buy-watched
+    ledger.append_record(make_record(ticker="BUYD", action="buy_dip"), path)  # not buy-watched
+    assert [r["ticker"] for r in ledger.list_open(path)] == ["WAIT"]
+    assert [r["ticker"] for r in ledger.list_open(path, kind="buy")] == ["WAIT"]
+    assert ledger.list_open(path, kind="holding") == []

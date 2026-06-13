@@ -117,6 +117,35 @@ def _find_record(records: list[dict], ticker: str, judged_at: str) -> dict:
     return matches[0]
 
 
+def _is_buy_candidate(record: dict) -> bool:
+    """A wait_for_confirmation verdict not yet bought, sold, or dismissed."""
+    return (
+        record["verdict"]["suggested_action"] == "wait_for_confirmation"
+        and record.get("position") is None
+        and record.get("exit") is None
+        and not record.get("dismissed", False)
+    )
+
+
+def _is_holding(record: dict) -> bool:
+    """Bought (cost basis stored) and not yet sold."""
+    return record.get("position") is not None and record.get("exit") is None
+
+
+def list_open(path: str = DEFAULT_LEDGER_PATH, kind: str | None = None) -> list[dict]:
+    """Records still tracked by /track-dips: buy candidates and/or holdings (derived, never stored)."""
+    if kind not in (None, "buy", "holding"):
+        raise ValueError(f"kind must be 'buy' or 'holding', got {kind!r}")
+    out: list[dict] = []
+    for record in load_records(path):
+        if kind in (None, "buy") and _is_buy_candidate(record):
+            out.append(record)
+            continue
+        if kind in (None, "holding") and _is_holding(record):
+            out.append(record)
+    return out
+
+
 def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:
     """Fill the ``ta`` block of records judged on ``date_str`` from that day's ``<TICKER>_ta_consensus.json`` files; returns the linked tickers.
 
