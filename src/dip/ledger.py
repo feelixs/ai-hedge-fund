@@ -146,6 +146,23 @@ def list_open(path: str = DEFAULT_LEDGER_PATH, kind: str | None = None) -> list[
     return out
 
 
+def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str, path: str = DEFAULT_LEDGER_PATH) -> dict:
+    """Mark a record as held at cost_basis; ValueError if already held or inputs invalid."""
+    if not isinstance(cost_basis, (int, float)) or isinstance(cost_basis, bool) or cost_basis <= 0:
+        raise ValueError(f"cost_basis must be a positive number, got {cost_basis!r}")
+    try:
+        datetime.fromisoformat(opened_at)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"opened_at must be an ISO datetime string, got {opened_at!r}") from e
+    records = load_records(path)
+    record = _find_record(records, ticker, judged_at)
+    if record.get("position") is not None:
+        raise ValueError(f"{record['ticker']} already has a position")
+    record["position"] = {"cost_basis": cost_basis, "opened_at": opened_at}
+    _rewrite(path, records)
+    return record
+
+
 def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:
     """Fill the ``ta`` block of records judged on ``date_str`` from that day's ``<TICKER>_ta_consensus.json`` files; returns the linked tickers.
 

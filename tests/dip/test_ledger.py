@@ -358,3 +358,33 @@ def test_list_open_finds_bare_buy_candidate(tmp_path):
     assert [r["ticker"] for r in ledger.list_open(path)] == ["WAIT"]
     assert [r["ticker"] for r in ledger.list_open(path, kind="buy")] == ["WAIT"]
     assert ledger.list_open(path, kind="holding") == []
+
+
+def test_open_position_sets_position(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    rec = ledger.open_position("adbe", "2026-06-12T12:01:33", 101.0, "2026-06-13T10:00:00", path)
+    assert rec["position"] == {"cost_basis": 101.0, "opened_at": "2026-06-13T10:00:00"}
+    assert ledger.load_records(path)[0]["position"]["cost_basis"] == 101.0  # persisted
+    assert ledger.load_records(path)[0]["outcome"] is None  # existing fields untouched
+
+
+def test_open_position_rejects_bad_inputs(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    with pytest.raises(ValueError, match="cost_basis"):
+        ledger.open_position("ADBE", "2026-06-12T12:01:33", 0, "2026-06-13T10:00:00", path)
+    with pytest.raises(ValueError, match="cost_basis"):
+        ledger.open_position("ADBE", "2026-06-12T12:01:33", True, "2026-06-13T10:00:00", path)
+    with pytest.raises(ValueError, match="cost_basis"):
+        ledger.open_position("ADBE", "2026-06-12T12:01:33", -5.0, "2026-06-13T10:00:00", path)
+    with pytest.raises(ValueError, match="opened_at"):
+        ledger.open_position("ADBE", "2026-06-12T12:01:33", 101.0, "soon", path)
+
+
+def test_open_position_rejects_double_buy(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 101.0, "2026-06-13T10:00:00", path)
+    with pytest.raises(ValueError, match="already has a position"):
+        ledger.open_position("ADBE", "2026-06-12T12:01:33", 105.0, "2026-06-14T10:00:00", path)
