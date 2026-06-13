@@ -28,6 +28,9 @@ DEFAULT_LEDGER_PATH = os.path.join(PROJECT_ROOT, "analysis", "dip_ledger.jsonl")
 CLASSIFICATIONS = {"transitory", "thesis_breaking", "unclear"}
 ACTIONS = {"buy_dip", "wait_for_confirmation", "avoid"}
 BAD_CALL_DROP = 0.97  # a buy_dip is a bad call if the EOW close is at/below dip price * this
+FOLLOWUP_KINDS = {"buy", "holding"}
+BUY_SIGNALS = {"still_waiting", "confirmed", "broke_down"}
+HOLDING_SIGNALS = {"hold", "take_profit", "stop_loss"}
 
 
 def load_records(path: str) -> list[dict]:
@@ -97,6 +100,21 @@ def _rewrite(path: str, records: list[dict]) -> None:
         for record in records:
             f.write(json.dumps(record) + "\n")
     os.replace(tmp, path)
+
+
+def _find_record(records: list[dict], ticker: str, judged_at: str) -> dict:
+    """Return the single record matching (ticker, judged_at); ValueError if none or many."""
+    if not isinstance(ticker, str) or not ticker.strip():
+        raise ValueError("ticker must be a non-empty string")
+    if not isinstance(judged_at, str) or not judged_at.strip():
+        raise ValueError("judged_at must be a string")
+    ticker = ticker.strip().upper()
+    matches = [r for r in records if r["ticker"] == ticker and r["judged_at"] == judged_at]
+    if not matches:
+        raise ValueError(f"no record for {ticker} judged at {judged_at}")
+    if len(matches) > 1:
+        raise ValueError(f"multiple records for {ticker} judged at {judged_at}")
+    return matches[0]
 
 
 def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:

@@ -311,3 +311,35 @@ def test_cli_history_rejects_nonpositive_limit(tmp_path, capsys):
     capsys.readouterr()
     assert ledger.main(["--ledger", path, "history", "--ticker", "ADBE", "--limit", "0"]) == 1
     assert "limit" in capsys.readouterr().err
+
+
+# --- Part C: position tracking ---
+
+
+def test_find_record_returns_single_match(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", judged_at="2026-06-13T12:00:00"), path)
+    ledger.append_record(make_record(ticker="NVDA", judged_at="2026-06-13T12:00:00"), path)
+    records = ledger.load_records(path)
+    found = ledger._find_record(records, "adbe", "2026-06-13T12:00:00")  # lowercase normalized
+    assert found["ticker"] == "ADBE"
+
+
+def test_find_record_missing_and_ambiguous_are_errors(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", judged_at="2026-06-13T12:00:00"), path)
+    ledger.append_record(make_record(ticker="ADBE", judged_at="2026-06-13T12:00:00"), path)  # duplicate key
+    records = ledger.load_records(path)
+    with pytest.raises(ValueError, match="no record for ADBE"):
+        ledger._find_record(records, "ADBE", "2026-06-13T09:00:00")
+    with pytest.raises(ValueError, match="multiple records for ADBE"):
+        ledger._find_record(records, "ADBE", "2026-06-13T12:00:00")
+
+
+def test_find_record_rejects_bad_keys():
+    with pytest.raises(ValueError, match="ticker"):
+        ledger._find_record([], "  ", "2026-06-13T12:00:00")
+    with pytest.raises(ValueError, match="judged_at"):
+        ledger._find_record([], "ADBE", None)
+    with pytest.raises(ValueError, match="judged_at"):
+        ledger._find_record([], "ADBE", "  ")
