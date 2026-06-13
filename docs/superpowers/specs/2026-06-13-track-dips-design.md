@@ -82,6 +82,12 @@ these fields.
 agreed scope). A `buy_dip` the user actually buys still enters **Holding** via
 `open-position` like any other record.
 
+`dismissed` is terminal only by convention: if the user later changes their
+mind, `open-position` may still be called on a dismissed record — it becomes a
+**Holding** and the now-inert `dismissed` flag no longer affects derivation
+(`_is_holding` ignores it). `open-position` rejects only already-held or
+already-sold records.
+
 ## State machine (every transition user-confirmed)
 
 ```

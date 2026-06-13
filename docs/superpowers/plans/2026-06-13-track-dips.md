@@ -247,10 +247,10 @@ def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str
         raise ValueError(f"opened_at must be an ISO datetime string, got {opened_at!r}")
     records = load_records(path)
     record = _find_record(records, ticker, judged_at)
-    if record.get("position") is not None:
-        raise ValueError(f"{record['ticker']} already has a position")
     if record.get("exit") is not None:
         raise ValueError(f"{record['ticker']} is already sold")
+    if record.get("position") is not None:
+        raise ValueError(f"{record['ticker']} already has a position")
     record["position"] = {"cost_basis": cost_basis, "opened_at": opened_at}
     _rewrite(path, records)
     return record
@@ -335,8 +335,8 @@ def close_position(ticker: str, judged_at: str, sold_price: float, sold_at: str,
         raise ValueError(f"sold_price must be a positive number, got {sold_price!r}")
     try:
         datetime.fromisoformat(sold_at)
-    except (TypeError, ValueError):
-        raise ValueError(f"sold_at must be an ISO datetime string, got {sold_at!r}")
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"sold_at must be an ISO datetime string, got {sold_at!r}") from e
     records = load_records(path)
     record = _find_record(records, ticker, judged_at)
     position = record.get("position")
@@ -422,9 +422,11 @@ In `src/dip/ledger.py`, after `close_position`, add:
 
 ```python
 def dismiss(ticker: str, judged_at: str, path: str = DEFAULT_LEDGER_PATH) -> dict:
-    """Drop a buy watch; ValueError if the record is a held position."""
+    """Drop a buy watch; ValueError if the record is a held or sold position."""
     records = load_records(path)
     record = _find_record(records, ticker, judged_at)
+    if record.get("exit") is not None:
+        raise ValueError(f"{record['ticker']} is already sold and cannot be dismissed")
     if record.get("position") is not None:
         raise ValueError(f"{record['ticker']} is a held position and cannot be dismissed")
     record["dismissed"] = True
@@ -485,10 +487,10 @@ def test_record_followup_validates_kind_and_signal(tmp_path):
     with pytest.raises(ValueError, match="signal"):
         ledger.record_followup({**base, "kind": "holding", "signal": "confirmed"}, path)
     with pytest.raises(ValueError, match="checked_at"):
-        ledger.record_followup({**base, "kind": "buy", "signal": "hold", "checked_at": "now"}, path)
+        ledger.record_followup({**base, "kind": "buy", "signal": "confirmed", "checked_at": "now"}, path)
 ```
 
-Note: in the last case `signal="hold"` is invalid for `kind="buy"`, but `checked_at` is validated first, so the error names `checked_at`.
+Note: the last case uses a valid `kind`/`signal` so that `checked_at` is the sole invalid field — `checked_at` is validated before `kind`/`signal`, so the error names `checked_at`.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -506,8 +508,8 @@ def record_followup(followup: dict, path: str = DEFAULT_LEDGER_PATH) -> dict:
         raise ValueError("invalid followup: must be a JSON object")
     try:
         datetime.fromisoformat(followup.get("checked_at", ""))
-    except (TypeError, ValueError):
-        raise ValueError("followup.checked_at must be an ISO datetime string")
+    except (TypeError, ValueError) as e:
+        raise ValueError("followup.checked_at must be an ISO datetime string") from e
     kind = followup.get("kind")
     if kind not in FOLLOWUP_KINDS:
         raise ValueError(f"followup.kind must be one of {sorted(FOLLOWUP_KINDS)}")
@@ -727,7 +729,9 @@ bridge: it only reads/writes files on disk and never touches
    - **Holding** (looking for an EXIT vs cost basis <position.cost_basis>):
      > Read `<ABS>/analysis/<today>/<TICKER>_prices.json` — daily OHLCV candles
      > and the current price. The user holds this from a cost basis of
-     > <cost_basis>. Using ONLY fresh price action, decide the exit signal.
+     > <cost_basis>; its EOW consensus target/high was
+     > <ta.consensus_target / ta.consensus_high> (may be "none"). Using ONLY
+     > fresh price action, decide the exit signal.
      > `take_profit` = price reached the EOW consensus target / a clear
      > resistance level well above cost basis. `stop_loss` = price broke a key
      > support below cost basis or the uptrend is clearly broken. Otherwise
@@ -770,8 +774,9 @@ bridge: it only reads/writes files on disk and never touches
      It prints the record with `exit.realized_pnl_pct`. If no, leave it
      holding.
 
-   - Buy candidate `broke_down`, OR any buy candidate whose `ta.eow_date` has
-     already passed with no action (a **stale** watch) → ask: "**TICKER** —
+   - Buy candidate `broke_down`, OR a **stale** watch — one whose entry window
+     has passed: `ta.eow_date` is before today, or (when `ta` is null) the
+     record's `judged_at` date is more than a week ago → ask: "**TICKER** —
      dismiss this buy watch?" If yes:
 
      ```bash
@@ -782,10 +787,12 @@ bridge: it only reads/writes files on disk and never touches
 
 6. **Report.** One markdown table: ticker / state (buy candidate · holding ·
    sold-this-run · dismissed-this-run) / signal / current price / cost basis
-   (holdings) / unrealized P&L = (price − cost_basis)/cost_basis (holdings still
-   open) / realized P&L (anything sold this run) / action taken. Add one line
-   per skipped ticker from step 2. Note that the fresh price JSONs are kept
-   under `analysis/<date>/` for audit.
+   (holdings) / unrealized P&L for still-open holdings as a percentage,
+   `(price − cost_basis) / cost_basis × 100` / realized P&L for anything sold
+   this run, read directly from the `exit.realized_pnl_pct` that
+   `close-position` printed (already a percentage — do not recompute) / action
+   taken. Add one line per skipped ticker from step 2. Note that the fresh
+   price JSONs are kept under `analysis/<date>/` for audit.
 
 ## Notes
 
