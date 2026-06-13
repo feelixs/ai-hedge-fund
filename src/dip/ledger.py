@@ -353,6 +353,17 @@ def main(argv: list[str] | None = None) -> int:
     p_hist = sub.add_parser("history", help="Print a ticker's records as JSON lines, oldest first")
     p_hist.add_argument("--ticker", required=True)
     p_hist.add_argument("--limit", type=int, default=10)
+    p_listopen = sub.add_parser("list-open", help="Print tracked records (buy candidates + holdings) as JSON lines")
+    p_listopen.add_argument("--kind", choices=["buy", "holding"], default=None)
+    p_followup = sub.add_parser("record-followup", help="Append a re-analysis entry to a record's followups[]")
+    p_followup.add_argument("--json", required=True, help="Followup as a JSON object")
+    p_open = sub.add_parser("open-position", help="Mark a record as held at a cost basis")
+    p_open.add_argument("--json", required=True, help="{ticker, judged_at, cost_basis, opened_at}")
+    p_close = sub.add_parser("close-position", help="Record a sale and compute realized P&L")
+    p_close.add_argument("--json", required=True, help="{ticker, judged_at, sold_price, sold_at}")
+    p_dismiss = sub.add_parser("dismiss", help="Drop a buy watch")
+    p_dismiss.add_argument("--ticker", required=True)
+    p_dismiss.add_argument("--judged-at", required=True)
     args = parser.parse_args(argv)
 
     try:
@@ -372,6 +383,19 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "history":
             for record in history(args.ticker, args.limit, args.ledger):
                 print(json.dumps(record))
+        elif args.command == "list-open":
+            for record in list_open(args.ledger, args.kind):
+                print(json.dumps(record))
+        elif args.command == "record-followup":
+            print(json.dumps(record_followup(json.loads(args.json), args.ledger)))
+        elif args.command == "open-position":
+            payload = json.loads(args.json)
+            print(json.dumps(open_position(payload.get("ticker"), payload.get("judged_at"), payload.get("cost_basis"), payload.get("opened_at"), args.ledger)))
+        elif args.command == "close-position":
+            payload = json.loads(args.json)
+            print(json.dumps(close_position(payload.get("ticker"), payload.get("judged_at"), payload.get("sold_price"), payload.get("sold_at"), args.ledger)))
+        elif args.command == "dismiss":
+            print(json.dumps(dismiss(args.ticker, args.judged_at, args.ledger)))
     except ValueError as e:
         print(f"[ledger] error: {e}", file=sys.stderr)
         return 1

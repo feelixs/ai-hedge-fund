@@ -501,3 +501,50 @@ def test_record_followup_validates_kind_and_signal(tmp_path):
         ledger.record_followup({**base, "kind": "holding", "signal": "confirmed"}, path)
     with pytest.raises(ValueError, match="checked_at"):
         ledger.record_followup({**base, "kind": "buy", "signal": "confirmed", "checked_at": "now"}, path)
+
+
+def test_cli_position_lifecycle(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    capsys.readouterr()
+
+    # list-open shows the buy candidate
+    assert ledger.main(["--ledger", path, "list-open", "--kind", "buy"]) == 0
+    assert json.loads(capsys.readouterr().out.strip())["ticker"] == "ADBE"
+
+    # open-position
+    buy = json.dumps({"ticker": "ADBE", "judged_at": "2026-06-12T12:01:33", "cost_basis": 100.0, "opened_at": "2026-06-13T10:00:00"})
+    assert ledger.main(["--ledger", path, "open-position", "--json", buy]) == 0
+    assert json.loads(capsys.readouterr().out.strip())["position"]["cost_basis"] == 100.0
+
+    # record-followup
+    fu = json.dumps({"ticker": "ADBE", "judged_at": "2026-06-12T12:01:33", "checked_at": "2026-06-16T09:00:00", "kind": "holding", "signal": "take_profit", "ta": {"price": 120.0}, "note": "hit target"})
+    assert ledger.main(["--ledger", path, "record-followup", "--json", fu]) == 0
+    capsys.readouterr()
+
+    # close-position computes P&L
+    sell = json.dumps({"ticker": "ADBE", "judged_at": "2026-06-12T12:01:33", "sold_price": 120.0, "sold_at": "2026-06-20T15:00:00"})
+    assert ledger.main(["--ledger", path, "close-position", "--json", sell]) == 0
+    assert json.loads(capsys.readouterr().out.strip())["exit"]["realized_pnl_pct"] == 20.0
+
+    # nothing open now
+    assert ledger.main(["--ledger", path, "list-open"]) == 0
+    assert capsys.readouterr().out.strip() == ""
+
+
+def test_cli_dismiss(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    capsys.readouterr()
+    assert ledger.main(["--ledger", path, "dismiss", "--ticker", "ADBE", "--judged-at", "2026-06-12T12:01:33"]) == 0
+    assert json.loads(capsys.readouterr().out.strip())["dismissed"] is True
+
+
+def test_cli_open_position_bad_payload_exits_nonzero(tmp_path, capsys):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    capsys.readouterr()
+    # missing cost_basis -> ValueError -> exit 1, not an uncaught KeyError
+    bad = json.dumps({"ticker": "ADBE", "judged_at": "2026-06-12T12:01:33", "opened_at": "2026-06-13T10:00:00"})
+    assert ledger.main(["--ledger", path, "open-position", "--json", bad]) == 1
+    assert "cost_basis" in capsys.readouterr().err
