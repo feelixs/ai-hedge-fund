@@ -470,3 +470,34 @@ def test_list_open_full_lifecycle_derivation(tmp_path):
     assert [r["ticker"] for r in ledger.list_open(path)] == ["WAIT", "HOLD"]  # insertion order preserved
     assert [r["ticker"] for r in ledger.list_open(path, kind="buy")] == ["WAIT"]
     assert [r["ticker"] for r in ledger.list_open(path, kind="holding")] == ["HOLD"]
+
+
+def test_record_followup_appends_entry(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    fu = {"ticker": "ADBE", "judged_at": "2026-06-12T12:01:33", "checked_at": "2026-06-16T09:05:00",
+          "kind": "buy", "signal": "confirmed", "ta": {"price": 104.2}, "note": "reclaimed 50d MA"}
+    rec = ledger.record_followup(fu, path)
+    assert len(rec["followups"]) == 1
+    entry = ledger.load_records(path)[0]["followups"][0]
+    assert entry == {"checked_at": "2026-06-16T09:05:00", "kind": "buy", "signal": "confirmed",
+                     "ta": {"price": 104.2}, "note": "reclaimed 50d MA"}
+    # second followup appends, not overwrites
+    ledger.record_followup({**fu, "checked_at": "2026-06-17T09:05:00", "signal": "still_waiting"}, path)
+    assert len(ledger.load_records(path)[0]["followups"]) == 2
+
+
+def test_record_followup_validates_kind_and_signal(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    base = {"ticker": "ADBE", "judged_at": "2026-06-12T12:01:33", "checked_at": "2026-06-16T09:05:00", "ta": {}, "note": ""}
+    with pytest.raises(ValueError, match="kind"):
+        ledger.record_followup({**base, "kind": "wat", "signal": "hold"}, path)
+    # holding signal under a buy kind is rejected
+    with pytest.raises(ValueError, match="signal"):
+        ledger.record_followup({**base, "kind": "buy", "signal": "take_profit"}, path)
+    # buy signal under a holding kind is rejected
+    with pytest.raises(ValueError, match="signal"):
+        ledger.record_followup({**base, "kind": "holding", "signal": "confirmed"}, path)
+    with pytest.raises(ValueError, match="checked_at"):
+        ledger.record_followup({**base, "kind": "buy", "signal": "confirmed", "checked_at": "now"}, path)

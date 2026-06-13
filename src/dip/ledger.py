@@ -198,6 +198,34 @@ def dismiss(ticker: str, judged_at: str, path: str = DEFAULT_LEDGER_PATH) -> dic
     return record
 
 
+def record_followup(followup: dict, path: str = DEFAULT_LEDGER_PATH) -> dict:
+    """Append one re-analysis entry to a record's followups[]; validates kind/signal enums."""
+    if not isinstance(followup, dict):
+        raise ValueError("invalid followup: must be a JSON object")
+    try:
+        datetime.fromisoformat(followup.get("checked_at", ""))
+    except (TypeError, ValueError) as e:
+        raise ValueError("followup.checked_at must be an ISO datetime string") from e
+    kind = followup.get("kind")
+    if kind not in FOLLOWUP_KINDS:
+        raise ValueError(f"followup.kind must be one of {sorted(FOLLOWUP_KINDS)}")
+    valid_signals = BUY_SIGNALS if kind == "buy" else HOLDING_SIGNALS
+    if followup.get("signal") not in valid_signals:
+        raise ValueError(f"followup.signal for kind {kind} must be one of {sorted(valid_signals)}")
+    entry = {
+        "checked_at": followup["checked_at"],
+        "kind": kind,
+        "signal": followup["signal"],
+        "ta": followup.get("ta"),
+        "note": followup.get("note"),
+    }
+    records = load_records(path)
+    record = _find_record(records, followup.get("ticker"), followup.get("judged_at"))
+    record.setdefault("followups", []).append(entry)
+    _rewrite(path, records)
+    return record
+
+
 def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:
     """Fill the ``ta`` block of records judged on ``date_str`` from that day's ``<TICKER>_ta_consensus.json`` files; returns the linked tickers.
 
