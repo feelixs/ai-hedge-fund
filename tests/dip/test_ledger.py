@@ -426,3 +426,47 @@ def test_close_position_rejects_bad_inputs(tmp_path):
         ledger.close_position("ADBE", "2026-06-12T12:01:33", 0, "2026-06-20T15:00:00", path)
     with pytest.raises(ValueError, match="sold_at"):
         ledger.close_position("ADBE", "2026-06-12T12:01:33", 110.0, "later", path)
+
+
+def test_dismiss_sets_flag(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    rec = ledger.dismiss("adbe", "2026-06-12T12:01:33", path)
+    assert rec["dismissed"] is True
+    assert ledger.load_records(path)[0]["dismissed"] is True  # persisted
+
+
+def test_dismiss_rejects_holding(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    with pytest.raises(ValueError, match="held position"):
+        ledger.dismiss("ADBE", "2026-06-12T12:01:33", path)
+
+
+def test_dismiss_rejects_sold(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="ADBE", action="wait_for_confirmation"), path)
+    ledger.open_position("ADBE", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    ledger.close_position("ADBE", "2026-06-12T12:01:33", 120.0, "2026-06-20T15:00:00", path)
+    with pytest.raises(ValueError, match="already sold"):
+        ledger.dismiss("ADBE", "2026-06-12T12:01:33", path)
+
+
+def test_list_open_full_lifecycle_derivation(tmp_path):
+    """End-to-end: list_open excludes sold and dismissed, includes buy candidates + holdings."""
+    path = str(tmp_path / "ledger.jsonl")
+    ledger.append_record(make_record(ticker="WAIT", action="wait_for_confirmation"), path)  # buy candidate
+    ledger.append_record(make_record(ticker="AVOID", action="avoid"), path)  # never buy-watched
+    ledger.append_record(make_record(ticker="BUYD", action="buy_dip"), path)  # never buy-watched
+    ledger.append_record(make_record(ticker="HOLD", action="wait_for_confirmation"), path)  # bought -> holding
+    ledger.open_position("HOLD", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    ledger.append_record(make_record(ticker="SOLD", action="wait_for_confirmation"), path)  # bought then sold
+    ledger.open_position("SOLD", "2026-06-12T12:01:33", 100.0, "2026-06-13T10:00:00", path)
+    ledger.close_position("SOLD", "2026-06-12T12:01:33", 120.0, "2026-06-14T10:00:00", path)
+    ledger.append_record(make_record(ticker="DROP", action="wait_for_confirmation"), path)  # dismissed
+    ledger.dismiss("DROP", "2026-06-12T12:01:33", path)
+
+    assert [r["ticker"] for r in ledger.list_open(path)] == ["WAIT", "HOLD"]  # insertion order preserved
+    assert [r["ticker"] for r in ledger.list_open(path, kind="buy")] == ["WAIT"]
+    assert [r["ticker"] for r in ledger.list_open(path, kind="holding")] == ["HOLD"]

@@ -185,6 +185,19 @@ def close_position(ticker: str, judged_at: str, sold_price: float, sold_at: str,
     return record
 
 
+def dismiss(ticker: str, judged_at: str, path: str = DEFAULT_LEDGER_PATH) -> dict:
+    """Drop a buy watch; ValueError if the record is a held or sold position."""
+    records = load_records(path)
+    record = _find_record(records, ticker, judged_at)
+    if record.get("exit") is not None:
+        raise ValueError(f"{record['ticker']} is already sold and cannot be dismissed")
+    if record.get("position") is not None:
+        raise ValueError(f"{record['ticker']} is a held position and cannot be dismissed")
+    record["dismissed"] = True
+    _rewrite(path, records)
+    return record
+
+
 def link_ta(date_str: str, path: str = DEFAULT_LEDGER_PATH, analysis_root: str | None = None) -> list[str]:
     """Fill the ``ta`` block of records judged on ``date_str`` from that day's ``<TICKER>_ta_consensus.json`` files; returns the linked tickers.
 
