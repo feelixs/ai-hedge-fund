@@ -523,12 +523,16 @@ def scan(analysis_dir: str, ledger_path: str = DEFAULT_LEDGER_PATH) -> list[dict
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Cheap deterministic trigger scan for the /watch-dips loop.")
-    parser.add_argument("--date", required=True, help="Analysis date YYYY-MM-DD (the dump_prices output dir under analysis/)")
-    parser.add_argument("--ledger", default=DEFAULT_LEDGER_PATH, help="Ledger path (default analysis/dip_ledger.jsonl)")
+    sub = parser.add_subparsers(dest="command", required=True)
+    p_scan = sub.add_parser("scan", help="Classify open records against a day's dumped price files; prints one JSON line per record")
+    p_scan.add_argument("--date", required=True, help="Analysis date YYYY-MM-DD (the dump_prices output dir under analysis/)")
+    p_scan.add_argument("--ledger", default=DEFAULT_LEDGER_PATH, help="Ledger path (default analysis/dip_ledger.jsonl)")
     args = parser.parse_args(argv)
-    analysis_dir = os.path.join(PROJECT_ROOT, "analysis", args.date)
-    for row in scan(analysis_dir, args.ledger):
-        print(json.dumps(row))
+
+    if args.command == "scan":
+        analysis_dir = os.path.join(PROJECT_ROOT, "analysis", args.date)
+        for row in scan(analysis_dir, args.ledger):
+            print(json.dumps(row))
     return 0
 
 
