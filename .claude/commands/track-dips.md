@@ -121,7 +121,8 @@ bridge: it only reads/writes files on disk and never touches
    `close-position` printed (already a percentage — do not recompute) / action
    taken. Add one line
    per skipped ticker from step 2. Note that the fresh price JSONs are kept
-   under `analysis/<date>/` for audit.
+   under `analysis/<date>/` for audit. Then add: "To watch these
+   continuously while the market is open, run `/loop /watch-dips`."
 
 ## Notes
 

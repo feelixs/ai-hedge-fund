@@ -108,7 +108,9 @@ it works purely on files on disk.
    consensus target (and low–high range), validated yes/no, persona
    decision, plus one line each on any FAILED or skipped tickers. Mention
    that the lens and consensus JSONs are kept in `analysis/<date>/` for
-   audit.
+   audit. Then hint the next step: "Next: `/track-dips` for a manual sweep
+   of open positions, or `/loop /watch-dips` to monitor them hourly while
+   the market is open."
 
 ## Notes
 

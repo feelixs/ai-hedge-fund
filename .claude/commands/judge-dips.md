@@ -116,7 +116,8 @@ Every verdict is also recorded to `analysis/dip_ledger.jsonl` and chained into
    automatically (it is polling) — no Enter needed. Then add: "Tip: run
    `/track-dips` to re-check your watched and held positions — entry
    confirmations for the calls you waited on, and exit / stop-loss signals
-   for anything you have bought."
+   for anything you have bought. To watch them automatically on an hourly
+   loop while the market is open, run `/loop /watch-dips`."
 
 ## Notes
 
