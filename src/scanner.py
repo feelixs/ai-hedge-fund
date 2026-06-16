@@ -17,6 +17,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 import os
 import math
@@ -605,6 +606,99 @@ def analyze_risk(ticker: str, start_date: str, end_date: str, api_key: str) -> d
         return {"risk_level": "UNKNOWN", "volatility": 0, "error": str(e)}
 
 
+async def analyze_technical_async(ticker: str, start_date: str, end_date: str, api_key: str) -> dict:
+    """Async wrapper for analyze_technical."""
+    return await asyncio.to_thread(analyze_technical, ticker, start_date, end_date, api_key)
+
+
+async def analyze_fundamentals_async(ticker: str, end_date: str, api_key: str) -> dict:
+    """Async wrapper for analyze_fundamentals."""
+    return await asyncio.to_thread(analyze_fundamentals, ticker, end_date, api_key)
+
+
+async def analyze_valuation_signal_async(ticker: str, end_date: str, api_key: str) -> dict:
+    """Async wrapper for analyze_valuation_signal."""
+    return await asyncio.to_thread(analyze_valuation_signal, ticker, end_date, api_key)
+
+
+async def analyze_growth_signal_async(ticker: str, end_date: str, api_key: str) -> dict:
+    """Async wrapper for analyze_growth_signal."""
+    return await asyncio.to_thread(analyze_growth_signal, ticker, end_date, api_key)
+
+
+async def analyze_sentiment_signal_async(ticker: str, end_date: str, api_key: str) -> dict:
+    """Async wrapper for analyze_sentiment_signal."""
+    return await asyncio.to_thread(analyze_sentiment_signal, ticker, end_date, api_key)
+
+
+async def analyze_risk_async(ticker: str, start_date: str, end_date: str, api_key: str) -> dict:
+    """Async wrapper for analyze_risk."""
+    return await asyncio.to_thread(analyze_risk, ticker, start_date, end_date, api_key)
+
+
+async def scan_ticker_async(
+    ticker: str,
+    semaphore: asyncio.Semaphore,
+    intraday_start_date: str,
+    end_date: str,
+    api_key: str
+) -> dict:
+    """Scan a single ticker with semaphore-controlled concurrency."""
+    async with semaphore:
+        print(f"Scanning {ticker}...", end=" ", flush=True)
+
+        signals = {}
+        signals["technical"] = await analyze_technical_async(ticker, intraday_start_date, end_date, api_key)
+        signals["fundamentals"] = await analyze_fundamentals_async(ticker, end_date, api_key)
+        signals["valuation"] = await analyze_valuation_signal_async(ticker, end_date, api_key)
+        signals["growth"] = await analyze_growth_signal_async(ticker, end_date, api_key)
+        signals["sentiment"] = await analyze_sentiment_signal_async(ticker, end_date, api_key)
+        signals["risk"] = await analyze_risk_async(ticker, intraday_start_date, end_date, api_key)
+
+        overall = calculate_overall_signal(signals)
+
+        print("Done")
+
+        return {
+            "ticker": ticker,
+            "signals": signals,
+            "overall": overall,
+        }
+
+
+async def run_scanner_async(
+    tickers: list[str],
+    api_key: str,
+    detailed: bool = False,
+    output_json: bool = False,
+    strategy: str = "intraday"
+) -> list[dict]:
+    """Run the scanner on all tickers asynchronously with semaphore control."""
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    intraday_start_date = (datetime.now() - timedelta(days=INTRADAY_LOOKBACK_DAYS + 15)).strftime("%Y-%m-%d")
+
+    # Semaphore limits concurrent ticker scans to 3
+    semaphore = asyncio.Semaphore(3)
+
+    # Create tasks for all tickers
+    tasks = [
+        scan_ticker_async(ticker, semaphore, intraday_start_date, end_date, api_key)
+        for ticker in tickers
+    ]
+
+    # Run all tasks concurrently (semaphore limits actual concurrency)
+    results = await asyncio.gather(*tasks)
+
+    print()
+
+    if output_json:
+        print(json.dumps(list(results), indent=2))
+    else:
+        print_table(list(results), detailed, strategy)
+
+    return list(results)
+
+
 def calculate_overall_signal(signals: dict) -> str:
     """Calculate overall signal from all categories (equal weights)."""
     signal_values = {"bullish": 1, "neutral": 0, "bearish": -1}
@@ -679,58 +773,7 @@ def print_table(results: list[dict], detailed: bool = False, strategy: str = "in
 
 def run_scanner(tickers: list[str], api_key: str, detailed: bool = False, output_json: bool = False, strategy: str = "intraday") -> list[dict]:
     """Run the scanner on all tickers."""
-    end_date = datetime.now().strftime("%Y-%m-%d")
-
-    # Intraday lookback for technical analysis (30 trading days of minute data)
-    intraday_start_date = (datetime.now() - timedelta(days=INTRADAY_LOOKBACK_DAYS + 15)).strftime("%Y-%m-%d")  # +15 for weekends/holidays
-
-    # Longer lookback for fundamental/risk analysis
-    fundamental_start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
-
-    results = []
-
-    for ticker in tickers:
-        print(f"Scanning {ticker}...", end=" ", flush=True)
-
-        signals = {}
-
-        # Technical analysis (using 15-minute candles from minute data)
-        signals["technical"] = analyze_technical(ticker, intraday_start_date, end_date, api_key)
-
-        # Fundamentals analysis
-        signals["fundamentals"] = analyze_fundamentals(ticker, end_date, api_key)
-
-        # Valuation analysis
-        signals["valuation"] = analyze_valuation_signal(ticker, end_date, api_key)
-
-        # Growth analysis
-        signals["growth"] = analyze_growth_signal(ticker, end_date, api_key)
-
-        # Sentiment analysis
-        signals["sentiment"] = analyze_sentiment_signal(ticker, end_date, api_key)
-
-        # Risk analysis (use intraday data for recent volatility)
-        signals["risk"] = analyze_risk(ticker, intraday_start_date, end_date, api_key)
-
-        # Overall signal
-        overall = calculate_overall_signal(signals)
-
-        results.append({
-            "ticker": ticker,
-            "signals": signals,
-            "overall": overall,
-        })
-
-        print("Done")
-
-    print()
-
-    if output_json:
-        print(json.dumps(results, indent=2))
-    else:
-        print_table(results, detailed, strategy)
-
-    return results
+    return asyncio.run(run_scanner_async(tickers, api_key, detailed, output_json, strategy))
 
 
 def get_instructions_content(strategy: str = "intraday") -> str:
