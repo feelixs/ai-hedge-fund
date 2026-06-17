@@ -152,16 +152,23 @@ def _positive_number(value, name: str) -> None:
         raise ValueError(f"{name} must be a positive number, got {value!r}")
 
 
-def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str, path: str = DEFAULT_LEDGER_PATH, quantity: float | None = None) -> dict:
+def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str, path: str = DEFAULT_LEDGER_PATH, quantity: float | None = None, paper: bool = False, bracket: dict | None = None) -> dict:
     """Mark a record as held at cost_basis; ValueError if already held/sold or inputs invalid.
 
     When ``quantity`` is given the position also tracks share count and a
     ``lots`` list so later ``add_to_position`` calls can blend the cost basis.
-    Omitting it preserves the legacy ``{cost_basis, opened_at}`` shape.
+    ``paper=True`` flags a simulated (not broker-placed) entry; ``bracket``
+    stores the protective {stop, target} levels. Omitting all three preserves
+    the legacy ``{cost_basis, opened_at}`` shape.
     """
     _positive_number(cost_basis, "cost_basis")
     if quantity is not None:
         _positive_number(quantity, "quantity")
+    if bracket is not None:
+        if not isinstance(bracket, dict):
+            raise ValueError("bracket must be an object with numeric stop and target")
+        _positive_number(bracket.get("stop"), "bracket.stop")
+        _positive_number(bracket.get("target"), "bracket.target")
     try:
         datetime.fromisoformat(opened_at)
     except (TypeError, ValueError) as e:
@@ -176,6 +183,10 @@ def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str
     if quantity is not None:
         position["quantity"] = quantity
         position["lots"] = [{"price": cost_basis, "quantity": quantity, "at": opened_at}]
+    if bracket is not None:
+        position["bracket"] = {"stop": bracket["stop"], "target": bracket["target"]}
+    if paper:
+        position["paper"] = True
     record["position"] = position
     _rewrite(path, records)
     return record
@@ -446,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(record_followup(json.loads(args.json), args.ledger)))
         elif args.command == "open-position":
             payload = json.loads(args.json)
-            print(json.dumps(open_position(payload.get("ticker"), payload.get("judged_at"), payload.get("cost_basis"), payload.get("opened_at"), args.ledger, payload.get("quantity"))))
+            print(json.dumps(open_position(payload.get("ticker"), payload.get("judged_at"), payload.get("cost_basis"), payload.get("opened_at"), args.ledger, payload.get("quantity"), payload.get("paper", False), payload.get("bracket"))))
         elif args.command == "add-to-position":
             payload = json.loads(args.json)
             print(json.dumps(add_to_position(payload.get("ticker"), payload.get("judged_at"), payload.get("price"), payload.get("quantity"), payload.get("added_at"), args.ledger, payload.get("base_quantity"))))

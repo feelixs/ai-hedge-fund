@@ -18,6 +18,18 @@ import sys
 from dataclasses import dataclass
 
 
+# Master switch for REAL order placement. While False the loop runs in paper
+# mode: it computes plans, alerts, and records the positions it WOULD enter, but
+# the agent must never call the robinhood-trading place tools. Flip to True only
+# deliberately (a code edit + explicit go-live), never silently.
+LIVE_ENABLED = False
+
+
+def is_live() -> bool:
+    """Whether real orders may be placed. The single guard every placement path checks."""
+    return LIVE_ENABLED
+
+
 @dataclass(frozen=True)
 class SizingConfig:
     kelly_multiplier: float = 0.5    # fractional Kelly for safety (half-Kelly)
@@ -117,16 +129,67 @@ def plan_bracket_order(*, symbol: str, price: float, portfolio_value: float, ava
     }
 
 
+def build_buy_order(plan: dict, account_number: str) -> dict:
+    """robinhood-trading place_equity_order params for the entry (marketable limit buy)."""
+    if plan.get("action") != "place":
+        raise ValueError(f"plan is not a place plan (action={plan.get('action')!r})")
+    return {
+        "account_number": account_number,
+        "symbol": plan["symbol"],
+        "side": "buy",
+        "type": "limit",
+        "quantity": str(plan["shares"]),
+        "limit_price": f"{plan['entry_limit']:.2f}",
+        "time_in_force": "gfd",
+        "market_hours": "regular_hours",
+    }
+
+
+def build_bracket_sells(plan: dict, account_number: str) -> dict:
+    """The two GTC protective sells placed after the entry fills: a stop_market
+    stop-loss and a limit take-profit (Robinhood auto-cancels the sibling)."""
+    if plan.get("action") != "place":
+        raise ValueError(f"plan is not a place plan (action={plan.get('action')!r})")
+    qty = str(plan["shares"])
+    common = {"account_number": account_number, "symbol": plan["symbol"], "side": "sell", "quantity": qty, "time_in_force": "gtc", "market_hours": "regular_hours"}
+    return {
+        "stop": {**common, "type": "stop_market", "stop_price": f"{plan['stop_price']:.2f}"},
+        "target": {**common, "type": "limit", "limit_price": f"{plan['target_price']:.2f}"},
+    }
+
+
+def paper_fill(plan: dict) -> dict:
+    """Simulated fill used to record a paper position when LIVE_ENABLED is False."""
+    return {"filled_price": plan["entry_limit"], "filled_qty": str(plan["shares"]), "simulated": True}
+
+
+def order_set(plan: dict, account_number: str) -> dict:
+    """The full order set for a place-plan plus the live/paper verdict. The agent
+    consults `live`: if False it records a paper position from `paper_fill` and
+    MUST NOT call any place tool; if True it places `buy`, then `bracket` on fill."""
+    live = is_live()
+    return {
+        "live": live,
+        "buy": build_buy_order(plan, account_number),
+        "bracket": build_bracket_sells(plan, account_number),
+        "paper_fill": None if live else paper_fill(plan),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Plan a whole-share bracket order for a confirmed dip entry.")
+    parser = argparse.ArgumentParser(description="Plan and gate whole-share bracket orders for dip entries.")
     sub = parser.add_subparsers(dest="command", required=True)
     p_plan = sub.add_parser("plan", help="Compute a bracket-order plan; prints the plan as JSON")
     p_plan.add_argument("--json", required=True, help='{symbol, price, portfolio_value, available_cash, confidence, consensus_low?, consensus_target?}')
+    p_orders = sub.add_parser("orders", help="Build the gated order set (buy + bracket) for a place-plan")
+    p_orders.add_argument("--json", required=True, help="A place-plan from `plan`")
+    p_orders.add_argument("--account", required=True, help="Brokerage account number")
+    sub.add_parser("live-status", help="Print whether real order placement is enabled")
     args = parser.parse_args(argv)
 
-    if args.command == "plan":
-        payload = json.loads(args.json)
-        try:
+    try:
+        if args.command == "plan":
+            payload = json.loads(args.json)
             plan = plan_bracket_order(
                 symbol=payload.get("symbol"),
                 price=payload.get("price"),
@@ -136,10 +199,14 @@ def main(argv: list[str] | None = None) -> int:
                 consensus_low=payload.get("consensus_low"),
                 consensus_target=payload.get("consensus_target"),
             )
-        except ValueError as e:
-            print(f"[execution] error: {e}", file=sys.stderr)
-            return 1
-        print(json.dumps(plan))
+            print(json.dumps(plan))
+        elif args.command == "orders":
+            print(json.dumps(order_set(json.loads(args.json), args.account)))
+        elif args.command == "live-status":
+            print(json.dumps({"live_enabled": is_live()}))
+    except ValueError as e:
+        print(f"[execution] error: {e}", file=sys.stderr)
+        return 1
     return 0
 
 

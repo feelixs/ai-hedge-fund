@@ -165,6 +165,32 @@ def test_cli_add_to_position(tmp_path, capsys):
     assert out["position"]["cost_basis"] == 90.0
 
 
+def test_open_position_paper_and_bracket(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    rec = ledger.open_position("CVNA", "2026-06-13T12:50:21", 65.0, "2026-06-17T10:00:00", path, quantity=2, paper=True, bracket={"stop": 59.5, "target": 64.0})
+    pos = rec["position"]
+    assert pos["paper"] is True
+    assert pos["bracket"] == {"stop": 59.5, "target": 64.0}
+    assert pos["quantity"] == 2
+    # still a tracked holding
+    assert ledger.list_open(path, kind="holding")[0]["ticker"] == "CVNA"
+
+
+def test_open_position_default_has_no_paper_or_bracket_keys(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    rec = ledger.open_position("CVNA", "2026-06-13T12:50:21", 65.0, "2026-06-17T10:00:00", path)
+    assert rec["position"] == {"cost_basis": 65.0, "opened_at": "2026-06-17T10:00:00"}  # unchanged shape
+
+
+def test_open_position_rejects_bad_bracket(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    with pytest.raises(ValueError, match="bracket"):
+        ledger.open_position("CVNA", "2026-06-13T12:50:21", 65.0, "2026-06-17T10:00:00", path, bracket={"stop": 59.5})
+
+
 def test_cli_open_position_forwards_quantity(tmp_path, capsys):
     """Regression: CLI open-position must pass quantity through so lots are seeded."""
     path = str(tmp_path / "l.jsonl")

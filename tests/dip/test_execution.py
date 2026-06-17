@@ -122,3 +122,63 @@ def test_cli_plan_skip_insufficient_cash(capsys):
     assert execution.main(["plan", "--json", payload]) == 0
     out = _json.loads(capsys.readouterr().out.strip())
     assert out["action"] == "skip" and out["reason"] == "insufficient_cash"
+
+
+# ---- LIVE_ENABLED gate (paper mode) ----
+
+from src.dip import execution as _ex  # noqa: E402
+
+
+def _sample_plan():
+    return plan(price=50.0, portfolio_value=10000.0, available_cash=10000.0)
+
+
+def test_live_disabled_by_default():
+    assert _ex.LIVE_ENABLED is False
+    assert _ex.is_live() is False
+
+
+def test_build_buy_order_shape():
+    order = _ex.build_buy_order(_sample_plan(), "ACCT123")
+    assert order["account_number"] == "ACCT123"
+    assert order["symbol"] == "TST" and order["side"] == "buy" and order["type"] == "limit"
+    assert order["time_in_force"] == "gfd" and order["market_hours"] == "regular_hours"
+    assert float(order["limit_price"]) > 50.0 and int(order["quantity"]) >= 1
+
+
+def test_build_bracket_sells_shape():
+    b = _ex.build_bracket_sells(_sample_plan(), "ACCT123")
+    assert b["stop"]["side"] == "sell" and b["stop"]["type"] == "stop_market"
+    assert b["stop"]["stop_price"] == "46.00" and b["stop"]["time_in_force"] == "gtc"
+    assert b["target"]["side"] == "sell" and b["target"]["type"] == "limit"
+    assert b["target"]["limit_price"] == "60.00" and b["target"]["time_in_force"] == "gtc"
+
+
+def test_build_buy_order_rejects_non_place_plan():
+    skip = plan(consensus_target=48.0)  # no_upside skip
+    with pytest.raises(ValueError, match="place"):
+        _ex.build_buy_order(skip, "ACCT123")
+
+
+def test_order_set_paper_when_live_disabled():
+    s = _ex.order_set(_sample_plan(), "ACCT123")
+    assert s["live"] is False
+    assert s["buy"]["side"] == "buy"
+    assert s["bracket"]["stop"]["type"] == "stop_market"
+    # paper mode provides a simulated fill so the caller can record the position
+    assert s["paper_fill"]["simulated"] is True
+    assert s["paper_fill"]["filled_qty"] == s["buy"]["quantity"] or int(s["paper_fill"]["filled_qty"]) == int(s["buy"]["quantity"])
+
+
+def test_order_set_live_when_enabled(monkeypatch):
+    monkeypatch.setattr(_ex, "LIVE_ENABLED", True)
+    s = _ex.order_set(_sample_plan(), "ACCT123")
+    assert s["live"] is True
+    assert s["paper_fill"] is None  # live: a real fill comes from the broker, not simulated
+
+
+def test_cli_live_status(capsys):
+    import json as _json
+    assert _ex.main(["live-status"]) == 0
+    out = _json.loads(capsys.readouterr().out.strip())
+    assert out["live_enabled"] is False
