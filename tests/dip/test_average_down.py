@@ -154,6 +154,35 @@ def test_scan_annotates_buy_candidate_also_held(tmp_path):
     assert holding_row.get("also_held") in (False, None)  # holdings themselves are not average-down targets
 
 
+def _holding_record(cost_basis, consensus_target, consensus_low):
+    return {
+        "ticker": "CVNA",
+        "judged_at": "2026-06-13T12:50:21",
+        "dip": {"last_price": 70.0},
+        "verdict": {"classification": "transitory", "suggested_action": "wait_for_confirmation", "confidence": 62},
+        "ta": {"validated": True, "consensus_target": consensus_target, "consensus_low": consensus_low},
+        "position": {"cost_basis": cost_basis, "opened_at": "2026-06-16T12:28:02"},
+    }
+
+
+def test_take_profit_never_triggers_below_cost_basis():
+    # Bought at 69.86; consensus target 64 is BELOW cost (bought above the dip target).
+    rec = _holding_record(cost_basis=69.86, consensus_target=64.0, consensus_low=59.5)
+    # At 64.51 (above the underwater target, below cost) this must NOT be take_profit.
+    row = monitor.classify_record(rec, current_price=64.51, prior_min_low=63.0)
+    assert row["status"] == "quiet"
+    # A real profit (above cost*1.08 = 75.45) does trigger take-profit.
+    assert monitor.classify_record(rec, current_price=76.0, prior_min_low=63.0)["status"] == "trigger_up"
+    # Below the stop (consensus_low 59.5) still triggers the stop-loss.
+    assert monitor.classify_record(rec, current_price=59.0, prior_min_low=63.0)["status"] == "trigger_down"
+
+
+def test_take_profit_uses_target_when_above_cost():
+    rec = _holding_record(cost_basis=50.0, consensus_target=60.0, consensus_low=46.0)
+    assert monitor.classify_record(rec, current_price=60.5, prior_min_low=49.0)["status"] == "trigger_up"
+    assert monitor.classify_record(rec, current_price=55.0, prior_min_low=49.0)["status"] == "quiet"
+
+
 def test_cli_add_to_position(tmp_path, capsys):
     path = str(tmp_path / "l.jsonl")
     ledger.append_record(make_record(), path)

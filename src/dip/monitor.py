@@ -40,7 +40,13 @@ def classify_record(record: dict, current_price: float, prior_min_low: float) ->
         kind = "holding"
         cost_basis = record["position"]["cost_basis"]
         target = ta.get("consensus_target") or ta.get("consensus_high")
-        take_profit_level = target if (has_consensus and target is not None) else round(cost_basis * (1 + TP_PCT), 2)
+        # Take-profit must be ABOVE cost basis — selling at a consensus target
+        # that sits below what we paid is a loss, not a profit. When the target
+        # is missing or underwater, fall back to a fixed markup over cost.
+        if has_consensus and target is not None and target > cost_basis:
+            take_profit_level = target
+        else:
+            take_profit_level = round(cost_basis * (1 + TP_PCT), 2)
         clow = ta.get("consensus_low")
         stop_level = clow if (has_consensus and clow is not None and clow < cost_basis) else round(cost_basis * (1 - STOP_PCT), 2)
         if current_price <= stop_level:
