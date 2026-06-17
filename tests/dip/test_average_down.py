@@ -183,6 +183,40 @@ def test_take_profit_uses_target_when_above_cost():
     assert monitor.classify_record(rec, current_price=55.0, prior_min_low=49.0)["status"] == "quiet"
 
 
+def test_material_drawdown_escalates_quiet_holding():
+    # CVNA-style: cost 69.86, price 63 -> -9.8% drawdown, between stop(59.5) and TP -> 'quiet'
+    rec = _holding_record(cost_basis=69.86, consensus_target=64.0, consensus_low=59.5)
+    row = monitor.classify_record(rec, current_price=63.0, prior_min_low=62.0)
+    assert row["status"] == "quiet"           # not a price trigger
+    assert row["material_adverse"] is True
+    assert row["escalate"] is True            # ...but escalates for a thesis re-judge
+    assert row["escalate_reason"] == "material_drawdown"
+
+
+def test_shallow_drawdown_does_not_escalate():
+    rec = _holding_record(cost_basis=69.86, consensus_target=64.0, consensus_low=59.5)
+    row = monitor.classify_record(rec, current_price=65.0, prior_min_low=64.0)  # -7% < 8% threshold
+    assert row["material_adverse"] is False
+    assert row["escalate"] is False
+    assert row["escalate_reason"] is None
+
+
+def test_material_drawdown_debounces_once_flagged():
+    rec = _holding_record(cost_basis=69.86, consensus_target=64.0, consensus_low=59.5)
+    rec["followups"] = [{"checked_at": "2026-06-17T13:00:00", "kind": "holding", "signal": "hold", "ta": {"price": 63.5, "monitor_status": "material_drawdown"}, "note": "x"}]
+    row = monitor.classify_record(rec, current_price=63.0, prior_min_low=62.0)
+    assert row["material_adverse"] is True
+    assert row["escalate"] is False           # already flagged -> debounced
+
+
+def test_stop_trigger_still_escalates_as_status_change():
+    rec = _holding_record(cost_basis=69.86, consensus_target=64.0, consensus_low=59.5)
+    row = monitor.classify_record(rec, current_price=59.0, prior_min_low=62.0)  # <= stop 59.5
+    assert row["status"] == "trigger_down"
+    assert row["escalate"] is True
+    assert row["escalate_reason"] == "status_change"
+
+
 def test_cli_add_to_position(tmp_path, capsys):
     path = str(tmp_path / "l.jsonl")
     ledger.append_record(make_record(), path)

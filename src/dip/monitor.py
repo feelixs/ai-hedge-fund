@@ -17,6 +17,8 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 
 TP_PCT = 0.08    # take-profit fallback when no consensus target: cost_basis * (1 + TP_PCT)
 STOP_PCT = 0.05  # stop fallback when consensus_low is not below cost basis
+MATERIAL_DRAWDOWN = 0.08  # a holding this far underwater (between stop and target) escalates for a thesis re-judge
+MATERIAL_STATUS = "material_drawdown"  # debounce marker so it escalates once, not every tick
 
 TRIGGERS = {"trigger_up", "trigger_down"}
 
@@ -66,14 +68,28 @@ def classify_record(record: dict, current_price: float, prior_min_low: float) ->
         else:
             status, level = "quiet", None
 
+    # Material adverse drawdown: a holding bleeding BETWEEN its stop and target reads
+    # `quiet` and would never escalate for a thesis re-judge until the daily sweep.
+    # Force an escalation when it is this far underwater (debounced via MATERIAL_STATUS).
+    drawdown_pct = None
+    material_adverse = False
+    if kind == "holding":
+        drawdown_pct = round((current_price - cost_basis) / cost_basis, 4)
+        material_adverse = drawdown_pct <= -MATERIAL_DRAWDOWN
+
     last_status = _last_monitor_status(record)
-    escalate = status in TRIGGERS and status != last_status
+    status_change = status in TRIGGERS and status != last_status
+    escalate = status_change or (material_adverse and last_status != MATERIAL_STATUS)
+    escalate_reason = "status_change" if status_change else ("material_drawdown" if escalate else None)
     return {
         "ticker": record["ticker"],
         "judged_at": record["judged_at"],
         "kind": kind,
         "current_price": current_price,
         "status": status,
+        "drawdown_pct": drawdown_pct,
+        "material_adverse": material_adverse,
+        "escalate_reason": escalate_reason,
         "level_used": level,
         "last_status": last_status,
         "escalate": escalate,
