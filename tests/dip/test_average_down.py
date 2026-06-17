@@ -1,0 +1,176 @@
+"""Tests for the average-down feature: lot-tracked blended cost basis + held-ticker reflag trigger."""
+
+import json
+
+import pytest
+
+from src.dip import ledger, monitor
+
+
+def make_record(ticker="CVNA", judged_at="2026-06-13T12:50:21", action="wait_for_confirmation", classification="transitory"):
+    return {
+        "ticker": ticker,
+        "judged_at": judged_at,
+        "dip": {"move_pct": -6.0, "last_price": 70.0, "spy_move_pct": 0.5, "excess_move_pct": -6.5, "drawdown_pct": -12.0, "rel_volume": 1.0},
+        "verdict": {"classification": classification, "suggested_action": action, "confidence": 62, "is_earnings_related": False, "catalyst": "test"},
+    }
+
+
+# ---- open_position quantity is optional and backward compatible ----
+
+def test_open_position_without_quantity_is_unchanged(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    rec = ledger.open_position("CVNA", "2026-06-13T12:50:21", 69.86, "2026-06-16T12:28:02", path)
+    # No quantity -> exact legacy shape, no extra keys
+    assert rec["position"] == {"cost_basis": 69.86, "opened_at": "2026-06-16T12:28:02"}
+
+
+def test_open_position_with_quantity_seeds_lots(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    rec = ledger.open_position("CVNA", "2026-06-13T12:50:21", 70.0, "2026-06-16T12:28:02", path, quantity=10)
+    pos = rec["position"]
+    assert pos["cost_basis"] == 70.0
+    assert pos["quantity"] == 10
+    assert pos["lots"] == [{"price": 70.0, "quantity": 10, "at": "2026-06-16T12:28:02"}]
+
+
+def test_open_position_rejects_bad_quantity(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    with pytest.raises(ValueError, match="quantity"):
+        ledger.open_position("CVNA", "2026-06-13T12:50:21", 70.0, "2026-06-16T12:28:02", path, quantity=0)
+    with pytest.raises(ValueError, match="quantity"):
+        ledger.open_position("CVNA", "2026-06-13T12:50:21", 70.0, "2026-06-16T12:28:02", path, quantity=True)
+
+
+# ---- add_to_position blends cost basis ----
+
+def test_add_to_position_blends_basis(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 100.0, "2026-06-16T10:00:00", path, quantity=10)
+    rec = ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-17T10:00:00", path=path)
+    pos = rec["position"]
+    assert pos["quantity"] == 20
+    assert pos["cost_basis"] == 90.0  # (100*10 + 80*10) / 20
+    assert len(pos["lots"]) == 2
+    assert pos["lots"][-1] == {"price": 80.0, "quantity": 10, "at": "2026-06-17T10:00:00"}
+
+
+def test_add_to_position_weighted_when_uneven(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 60.0, "2026-06-16T10:00:00", path, quantity=30)
+    rec = ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-17T10:00:00", path=path)
+    # (60*30 + 80*10) / 40 = 2600/40 = 65.0
+    assert rec["position"]["cost_basis"] == 65.0
+    assert rec["position"]["quantity"] == 40
+
+
+def test_add_to_position_legacy_requires_base_quantity(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 100.0, "2026-06-16T10:00:00", path)  # no quantity -> legacy
+    with pytest.raises(ValueError, match="base_quantity"):
+        ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-17T10:00:00", path=path)
+    # With base_quantity it seeds lot 0 from the existing cost_basis and blends
+    rec = ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-17T10:00:00", base_quantity=10, path=path)
+    assert rec["position"]["cost_basis"] == 90.0
+    assert rec["position"]["quantity"] == 20
+
+
+def test_add_to_position_requires_open_position(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    with pytest.raises(ValueError, match="no open position"):
+        ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-17T10:00:00", path=path)
+
+
+def test_add_to_position_rejects_sold(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 100.0, "2026-06-16T10:00:00", path, quantity=10)
+    ledger.close_position("CVNA", "2026-06-13T12:50:21", 110.0, "2026-06-18T10:00:00", path)
+    with pytest.raises(ValueError, match="already sold"):
+        ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-19T10:00:00", path=path)
+
+
+def test_add_to_position_rejects_bad_inputs(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 100.0, "2026-06-16T10:00:00", path, quantity=10)
+    with pytest.raises(ValueError, match="price"):
+        ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 0, 10, "2026-06-17T10:00:00", path=path)
+    with pytest.raises(ValueError, match="quantity"):
+        ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, -5, "2026-06-17T10:00:00", path=path)
+    with pytest.raises(ValueError, match="added_at"):
+        ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "soon", path=path)
+
+
+def test_close_after_add_uses_blended_basis(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 100.0, "2026-06-16T10:00:00", path, quantity=10)
+    ledger.add_to_position("CVNA", "2026-06-13T12:50:21", 80.0, 10, "2026-06-17T10:00:00", path=path)
+    rec = ledger.close_position("CVNA", "2026-06-13T12:50:21", 99.0, "2026-06-20T15:00:00", path)
+    # blended basis 90 -> sold 99 -> +10%
+    assert rec["exit"]["realized_pnl_pct"] == 10.0
+
+
+# ---- monitor: held-ticker reflag trigger ----
+
+def test_held_cost_basis_by_ticker(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(ticker="CVNA", judged_at="2026-06-13T12:50:21"), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 69.86, "2026-06-16T12:28:02", path)
+    ledger.append_record(make_record(ticker="PINS", judged_at="2026-06-13T12:50:21"), path)  # buy candidate, not held
+    held = monitor.held_cost_basis_by_ticker(path)
+    assert held == {"CVNA": 69.86}
+
+
+def test_scan_annotates_buy_candidate_also_held(tmp_path):
+    path = str(tmp_path / "l.jsonl")
+    analysis = tmp_path / "2026-06-17"
+    analysis.mkdir()
+    # CVNA held from an earlier dip
+    ledger.append_record(make_record(ticker="CVNA", judged_at="2026-06-13T12:50:21"), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 69.86, "2026-06-16T12:28:02", path)
+    # CVNA re-flagged today as a fresh buy candidate
+    ledger.append_record(make_record(ticker="CVNA", judged_at="2026-06-17T09:59:48"), path)
+    (analysis / "CVNA_prices.json").write_text(json.dumps({
+        "current_price": 65.0,
+        "prices": [
+            {"date": "2026-06-16", "open": 70, "high": 71, "low": 69, "close": 70, "volume": 1000},
+            {"date": "2026-06-17", "open": 66, "high": 67, "low": 64, "close": 65, "volume": 1000},
+        ],
+    }))
+    rows = monitor.scan(str(analysis), path)
+    buy_row = next(r for r in rows if r["kind"] == "buy" and r["ticker"] == "CVNA")
+    assert buy_row["also_held"] is True
+    assert buy_row["held_cost_basis"] == 69.86
+    holding_row = next(r for r in rows if r["kind"] == "holding" and r["ticker"] == "CVNA")
+    assert holding_row.get("also_held") in (False, None)  # holdings themselves are not average-down targets
+
+
+def test_cli_add_to_position(tmp_path, capsys):
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    ledger.open_position("CVNA", "2026-06-13T12:50:21", 100.0, "2026-06-16T10:00:00", path, quantity=10)
+    payload = json.dumps({"ticker": "CVNA", "judged_at": "2026-06-13T12:50:21", "price": 80.0, "quantity": 10, "added_at": "2026-06-17T10:00:00"})
+    rc = ledger.main(["--ledger", path, "add-to-position", "--json", payload])
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out.strip())
+    assert out["position"]["cost_basis"] == 90.0
+
+
+def test_cli_open_position_forwards_quantity(tmp_path, capsys):
+    """Regression: CLI open-position must pass quantity through so lots are seeded."""
+    path = str(tmp_path / "l.jsonl")
+    ledger.append_record(make_record(), path)
+    buy = json.dumps({"ticker": "CVNA", "judged_at": "2026-06-13T12:50:21", "cost_basis": 100.0, "opened_at": "2026-06-16T10:00:00", "quantity": 10})
+    assert ledger.main(["--ledger", path, "open-position", "--json", buy]) == 0
+    out = json.loads(capsys.readouterr().out.strip())
+    assert out["position"]["quantity"] == 10
+    assert out["position"]["lots"] == [{"price": 100.0, "quantity": 10, "at": "2026-06-16T10:00:00"}]

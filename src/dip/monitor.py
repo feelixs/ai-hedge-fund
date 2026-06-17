@@ -92,16 +92,37 @@ def _price_view(prices_path: str, judged_at: str) -> tuple[float, float]:
     return current_price, prior_min_low
 
 
+def held_cost_basis_by_ticker(ledger_path: str = DEFAULT_LEDGER_PATH) -> dict:
+    """Map ticker -> cost_basis for every currently held position.
+
+    Used to flag buy candidates that re-flag a ticker the user already holds:
+    those are average-down opportunities, not fresh entries."""
+    return {r["ticker"]: r["position"]["cost_basis"] for r in list_open(ledger_path, kind="holding")}
+
+
+def _annotate_held(row: dict, held: dict) -> dict:
+    """Tag a buy-candidate row when its ticker is already held (average-down trigger)."""
+    if row["kind"] == "buy" and row["ticker"] in held:
+        row["also_held"] = True
+        row["held_cost_basis"] = held[row["ticker"]]
+    else:
+        row["also_held"] = False
+        row["held_cost_basis"] = None
+    return row
+
+
 def scan(analysis_dir: str, ledger_path: str = DEFAULT_LEDGER_PATH) -> list[dict]:
     """Classify every open record against its price file in `analysis_dir`.
 
     A record whose price file is absent (dump_prices skipped it) is reported
-    with status 'no_price' and never escalated."""
+    with status 'no_price' and never escalated. Buy-candidate rows are tagged
+    `also_held`/`held_cost_basis` when the ticker is already a held position."""
+    held = held_cost_basis_by_ticker(ledger_path)
     out: list[dict] = []
     for record in list_open(ledger_path):
         prices_path = os.path.join(analysis_dir, f"{record['ticker']}_prices.json")
         if not os.path.exists(prices_path):
-            out.append({
+            out.append(_annotate_held({
                 "ticker": record["ticker"],
                 "judged_at": record["judged_at"],
                 "kind": "holding" if _is_holding(record) else "buy",
@@ -110,10 +131,10 @@ def scan(analysis_dir: str, ledger_path: str = DEFAULT_LEDGER_PATH) -> list[dict
                 "level_used": None,
                 "last_status": _last_monitor_status(record),
                 "escalate": False,
-            })
+            }, held))
             continue
         current_price, prior_min_low = _price_view(prices_path, record["judged_at"])
-        out.append(classify_record(record, current_price, prior_min_low))
+        out.append(_annotate_held(classify_record(record, current_price, prior_min_low), held))
     return out
 
 

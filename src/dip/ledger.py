@@ -146,10 +146,22 @@ def list_open(path: str = DEFAULT_LEDGER_PATH, kind: str | None = None) -> list[
     return out
 
 
-def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str, path: str = DEFAULT_LEDGER_PATH) -> dict:
-    """Mark a record as held at cost_basis; ValueError if already held/sold or inputs invalid."""
-    if not isinstance(cost_basis, (int, float)) or isinstance(cost_basis, bool) or cost_basis <= 0:
-        raise ValueError(f"cost_basis must be a positive number, got {cost_basis!r}")
+def _positive_number(value, name: str) -> None:
+    """Raise ValueError unless ``value`` is a positive, non-bool number."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{name} must be a positive number, got {value!r}")
+
+
+def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str, path: str = DEFAULT_LEDGER_PATH, quantity: float | None = None) -> dict:
+    """Mark a record as held at cost_basis; ValueError if already held/sold or inputs invalid.
+
+    When ``quantity`` is given the position also tracks share count and a
+    ``lots`` list so later ``add_to_position`` calls can blend the cost basis.
+    Omitting it preserves the legacy ``{cost_basis, opened_at}`` shape.
+    """
+    _positive_number(cost_basis, "cost_basis")
+    if quantity is not None:
+        _positive_number(quantity, "quantity")
     try:
         datetime.fromisoformat(opened_at)
     except (TypeError, ValueError) as e:
@@ -160,7 +172,47 @@ def open_position(ticker: str, judged_at: str, cost_basis: float, opened_at: str
         raise ValueError(f"{record['ticker']} is already sold")
     if record.get("position") is not None:
         raise ValueError(f"{record['ticker']} already has a position")
-    record["position"] = {"cost_basis": cost_basis, "opened_at": opened_at}
+    position = {"cost_basis": cost_basis, "opened_at": opened_at}
+    if quantity is not None:
+        position["quantity"] = quantity
+        position["lots"] = [{"price": cost_basis, "quantity": quantity, "at": opened_at}]
+    record["position"] = position
+    _rewrite(path, records)
+    return record
+
+
+def add_to_position(ticker: str, judged_at: str, price: float, quantity: float, added_at: str, path: str = DEFAULT_LEDGER_PATH, base_quantity: float | None = None) -> dict:
+    """Average down/up: append a lot and recompute the weighted blended cost_basis.
+
+    A position opened without a quantity has no lots to blend against; pass
+    ``base_quantity`` (the original share count) so the existing cost_basis is
+    seeded as lot 0. ValueError if there is no open position or it is sold.
+    """
+    _positive_number(price, "price")
+    _positive_number(quantity, "quantity")
+    try:
+        datetime.fromisoformat(added_at)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"added_at must be an ISO datetime string, got {added_at!r}") from e
+    records = load_records(path)
+    record = _find_record(records, ticker, judged_at)
+    position = record.get("position")
+    if position is None:
+        raise ValueError(f"{record['ticker']} has no open position to add to")
+    if record.get("exit") is not None:
+        raise ValueError(f"{record['ticker']} is already sold")
+    lots = position.get("lots")
+    if lots is None:
+        if base_quantity is None:
+            raise ValueError(f"{record['ticker']} position predates lot tracking; pass base_quantity (the original share count) to seed it")
+        _positive_number(base_quantity, "base_quantity")
+        lots = [{"price": position["cost_basis"], "quantity": base_quantity, "at": position["opened_at"]}]
+    lots = [*lots, {"price": price, "quantity": quantity, "at": added_at}]
+    total_qty = sum(lot["quantity"] for lot in lots)
+    blended = sum(lot["price"] * lot["quantity"] for lot in lots) / total_qty
+    position["lots"] = lots
+    position["quantity"] = total_qty
+    position["cost_basis"] = round(blended, 4)
     _rewrite(path, records)
     return record
 
@@ -361,6 +413,8 @@ def main(argv: list[str] | None = None) -> int:
     p_followup.add_argument("--json", required=True, help="Followup as a JSON object")
     p_open = sub.add_parser("open-position", help="Mark a record as held at a cost basis")
     p_open.add_argument("--json", required=True, help="{ticker, judged_at, cost_basis, opened_at}")
+    p_add = sub.add_parser("add-to-position", help="Average down/up: add a lot and recompute blended cost basis")
+    p_add.add_argument("--json", required=True, help="{ticker, judged_at, price, quantity, added_at, base_quantity?}")
     p_close = sub.add_parser("close-position", help="Record a sale and compute realized P&L")
     p_close.add_argument("--json", required=True, help="{ticker, judged_at, sold_price, sold_at}")
     p_dismiss = sub.add_parser("dismiss", help="Drop a buy watch")
@@ -392,7 +446,10 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(record_followup(json.loads(args.json), args.ledger)))
         elif args.command == "open-position":
             payload = json.loads(args.json)
-            print(json.dumps(open_position(payload.get("ticker"), payload.get("judged_at"), payload.get("cost_basis"), payload.get("opened_at"), args.ledger)))
+            print(json.dumps(open_position(payload.get("ticker"), payload.get("judged_at"), payload.get("cost_basis"), payload.get("opened_at"), args.ledger, payload.get("quantity"))))
+        elif args.command == "add-to-position":
+            payload = json.loads(args.json)
+            print(json.dumps(add_to_position(payload.get("ticker"), payload.get("judged_at"), payload.get("price"), payload.get("quantity"), payload.get("added_at"), args.ledger, payload.get("base_quantity"))))
         elif args.command == "close-position":
             payload = json.loads(args.json)
             print(json.dumps(close_position(payload.get("ticker"), payload.get("judged_at"), payload.get("sold_price"), payload.get("sold_at"), args.ledger)))
