@@ -76,3 +76,5 @@ analysis/
 
 # Alembic (keep migration files, but ignore generated/cache files)
 app/backend/alembic/versions/__pycache__/
+# Local operator notes (personal trading config) — keep out of the public fork
+CLAUDE.md
